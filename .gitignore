@@ -1,0 +1,35 @@
+############################
+# Project data directories #
+############################
+
+# Ignore input and output data directories
+INPUT_DIR/
+
+#######################
+# Python build output #
+#######################
+
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+
+###########################
+# OS / editor junk files  #
+###########################
+
+# macOS
+.DS_Store
+._*
+
+# IDEs / editors
+.idea/
+.vscode/
+
+#######################
+# Local result files  #
+#######################
+
+test_results.txt
+*_results.txt
+

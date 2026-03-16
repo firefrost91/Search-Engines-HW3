@@ -1,0 +1,17 @@
+{
+    "indexPath": "INPUT_DIR/index-cw09",
+    "queryFilePath": "TEST_DIR/HW2-Exp-1.1a.qry",
+
+    "task_1:ranker": {
+        "outputLength": "100",
+        "type": "BM25",
+        "BM25:k_1": "1.2",
+        "BM25:b": "0.75"
+    },
+
+    "task_4:output": {
+        "type": "trec_eval",
+        "outputPath": "OUTPUT_DIR/HW2-Exp-1.1a.teIn",
+        "outputLength": "100"
+    }
+}
