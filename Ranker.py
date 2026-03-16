@@ -104,15 +104,5 @@ class Ranker:
 
             rlist = ranking.get_ranking()
             batch[qid]['ranking'] = rlist
-            # #region agent log
-            if int(qid) == 169 and len(rlist) >= 7:
-                try:
-                    _lp = "/Users/ansh/Desktop/Search Engines/.cursor/debug.log"
-                    import json, time
-                    boundary = [(r[0], r[1]) for r in rlist[-7:]]
-                    with open(_lp, "a") as _f:
-                        _f.write(json.dumps({"sessionId":"debug-session","runId":"run1","hypothesisId":"B","location":"Ranker.py:get_rankings_bow","message":"ranking boundary q169","data":{"qid":qid,"last7":boundary},"timestamp":int(time.time()*1000)}) + "\n")
-                except Exception: pass
-            # #endregion
 
         return(batch)

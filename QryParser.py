@@ -455,6 +455,51 @@ class QryParser:
 
 
     @staticmethod
+    def bowQuery(queryString):
+        """
+        Convert a structured query (#SUM or #WSUM) to a bag-of-words string.
+        If the query is already a BOW query (no '#' operator), return it
+        unchanged so it is safe to call on every query.
+
+        Structured tokens are processed as follows:
+          - Operator tokens (start with '#') are dropped.
+          - Numeric tokens (e.g., weights in #WSUM) are dropped.
+          - Field extensions are stripped (e.g., "apple.body" -> "apple").
+          - Remaining tokens are kept as-is; QryParser.tokenizeString will
+            stop/stem them in the normal way.
+
+        queryString: The query string.
+        Returns: A bag-of-words query string (space-separated raw terms).
+        """
+        q = queryString.strip()
+        if not q.startswith('#'):
+            return q
+
+        import re
+        # Split on whitespace and parentheses to get individual tokens.
+        tokens = re.split(r'[\s()]+', q)
+        terms = []
+        for token in tokens:
+            if not token:
+                continue
+            # Drop operator tokens
+            if token.startswith('#'):
+                continue
+            # Drop pure numeric tokens (weights in #WSUM / #wsum)
+            try:
+                float(token)
+                continue
+            except ValueError:
+                pass
+            # Strip field extension (e.g., "apple.body" -> "apple")
+            if '.' in token:
+                token = token.split('.', 1)[0]
+            if token:
+                terms.append(token)
+        return ' '.join(terms)
+
+
+    @staticmethod
     def tokenizeString(query):
         """                      
         Given part of a query string, returns an array of terms with

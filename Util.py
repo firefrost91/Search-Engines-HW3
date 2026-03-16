@@ -35,6 +35,7 @@ def file_write_strings(path, lst):
         f = open (path, 'w')
         for l in lst:
             f.write(str(l) + '\n')
+        f.close()
     except Exception as e:
         print(f'Error: Cannot write {path}\n    {str(e)}')
         return None
