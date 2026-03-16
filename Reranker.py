@@ -8,6 +8,11 @@ and unranked boolean, Indri, QL, BM25).
 
 from RerankWithLtr import RerankWithLtr
 
+try:
+    from RerankWithBert import RerankWithBERT
+except ImportError:
+    RerankWithBERT = None
+
 class Reranker:
     """
     Rerank initial rankings for a set of queries. The rankings may
@@ -26,10 +31,11 @@ class Reranker:
         
         models = {
             'ltr': RerankWithLtr,
-            'bertrr': RerankWithBERT
         }
+        if RerankWithBERT is not None:
+            models['bertrr'] = RerankWithBERT
         if parameters['type'].lower() not in models:
-            raise Exception('Error: Unknown type: {parameters["type"]}')
+            raise Exception(f'Error: Unknown type: {parameters["type"]}')
         self._model = models[parameters['type'].lower()](parameters)
 
 
