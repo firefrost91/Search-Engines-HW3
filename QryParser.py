@@ -455,6 +455,49 @@ class QryParser:
 
 
     @staticmethod
+    def bowQuery(queryString):
+        """
+        Convert a #SUM or #WSUM query into a bag-of-words (BOW) query string.
+        If the query is already a BOW query (no leading '#'), return it unchanged.
+        Extracts all leaf terms from the query tree and returns them space-separated.
+
+        queryString: A query string, possibly containing #SUM or #WSUM operators.
+
+        Returns a flat BOW query string.
+        """
+        queryString = queryString.strip()
+
+        # If it doesn't start with '#', it's already a BOW query
+        if not queryString.startswith('#'):
+            return queryString
+
+        # Extract all leaf terms by stripping operators and parentheses
+        # Remove operator names like #SUM, #WSUM, #AND, #NEAR/n, etc.
+        import re
+        # Remove operator tokens: #word, #word/number
+        cleaned = re.sub(r'#\w+(?:/\d+)?', ' ', queryString)
+        # Remove parentheses
+        cleaned = cleaned.replace('(', ' ').replace(')', ' ')
+        # Remove weights (numbers at start of a token that aren't part of a term)
+        tokens = cleaned.split()
+        bow_terms = []
+        for token in tokens:
+            token = token.strip()
+            if not token:
+                continue
+            # Skip pure numbers (weights in #WSUM)
+            try:
+                float(token)
+                continue
+            except ValueError:
+                pass
+            # Strip field specifiers (e.g., "apple.title" -> "apple.title" kept as-is)
+            bow_terms.append(token)
+
+        return ' '.join(bow_terms)
+
+
+    @staticmethod
     def tokenizeString(query):
         """                      
         Given part of a query string, returns an array of terms with
