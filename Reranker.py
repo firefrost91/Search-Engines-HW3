@@ -24,9 +24,9 @@ class Reranker:
         if 'type' not in parameters:
             raise Exception('Error: Missing parameter type.')
         
+        # Only LTR is implemented for HW3.
         models = {
-            'ltr': RerankWithLtr,
-            'bertrr': RerankWithBERT
+            'ltr': RerankWithLtr
         }
         if parameters['type'].lower() not in models:
             raise Exception('Error: Unknown type: {parameters["type"]}')

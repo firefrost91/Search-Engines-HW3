@@ -485,4 +485,56 @@ class QryParser:
 
         return(tokens)
 
+
+    @staticmethod
+    def bowQuery(queryString):
+        """
+        Convert a top-level #SUM or #WSUM query (as produced by PRF)
+        into a simple bag-of-words query string that contains only
+        terms and field specifiers. If the query is already a BOW
+        query (i.e., does not begin with a query operator), the
+        original string is returned unchanged.
+
+        Examples
+        --------
+        '#SUM( apple pie )'             -> 'apple pie'
+        '#WSUM( 0.5 apple 1 pie )'      -> 'apple pie'
+        '#AND( apple pie )'             -> '#AND( apple pie )'  (unchanged)
+        """
+
+        s = queryString.strip()
+
+        # Already a simple BOW query, nothing to do.
+        if not s.startswith('#'):
+            return s
+
+        # Expect something like '#sum( ... )' or '#wsum( ... )'.
+        op_end = s.find('(')
+        if op_end == -1 or not s.endswith(')'):
+            # Malformed or not a simple top-level operator; leave unchanged.
+            return s
+
+        op = s[:op_end].strip().lower()
+        inner = s[op_end + 1:-1].strip()  # contents between outer parens
+
+        # Only rewrite #sum / #wsum queries used for PRF.
+        if op not in ['#sum', '#wsum']:
+            return s
+
+        tokens = inner.split()
+        bow_terms = []
+
+        if op == '#sum':
+            # All tokens are terms (already lexically processed by the PRF step)
+            bow_terms = tokens
+        else:
+            # #WSUM ( w1 t1 w2 t2 ... ) -> take every second token as a term.
+            i = 0
+            while i < len(tokens):
+                if i + 1 < len(tokens):
+                    bow_terms.append(tokens[i + 1])
+                i += 2
+
+        return ' '.join(bow_terms)
+
         
