@@ -1,0 +1,33 @@
+{
+    "indexPath": "INPUT_DIR/index-cw09",
+    "queryFilePath": "TEST_DIR/HW3-Train-33.qry",
+    "task_1:ranker": {
+        "type": "inRankFile",
+        "BM25:b": "0.4",
+        "BM25:k_1": "1.2",
+        "inRankFile:Path": "TEST_DIR/HW3-Train-33.inRank"
+    },
+    "task_3:reranker": {
+        "type": "ltr",
+        "rerankDepth": "275",
+        "ltr:BM25:b": "0.7",
+        "ltr:BM25:k_1": "1.2",
+        "ltr:QL:mu": "2000",
+        "ltr:featureDisable": "14,15,16,17,18,19,20,21,22,23,24,25,26",
+        "ltr:toolkit": "SVMRank",
+        "ltr:svmRankLearnPath": "INPUT_DIR/svm_rank_learn",
+        "ltr:svmRankClassifyPath": "INPUT_DIR/svm_rank_classify",
+        "ltr:svmRankParamC": "0.001",
+        "ltr:trainingQrelsFile": "TEST_DIR/HW3-Train-33.trainQrels",
+        "ltr:trainingQueryFile": "TEST_DIR/HW3-Train-33.trainQry",
+        "ltr:trainingFeatureVectorsFile": "OUTPUT_DIR/HW3-Train-33.LtrTrain",
+        "ltr:modelFile": "OUTPUT_DIR/HW3-Train-33.Model",
+        "ltr:testingFeatureVectorsFile": "OUTPUT_DIR/HW3-Train-33.LtrTest",
+        "ltr:testingDocumentScores": "OUTPUT_DIR/HW3-Train-33.DocScore"
+    },
+    "task_4:output": {
+        "type": "trec_eval",
+        "outputPath": "OUTPUT_DIR/HW3-Train-33.teIn",
+        "outputLength": "1000"
+    }
+}

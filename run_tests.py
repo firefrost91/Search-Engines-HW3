@@ -9,6 +9,10 @@ Run from the QryEval directory:
   ./run_tests.py --run --diff       # full: QryEval -> trec_eval -> diff
   ./run_tests.py 0 5 16             # only cases 0, 5, 16 (HW1-Train-0, etc.)
   ./run_tests.py OUTPUT_DIR/HW2-Exp-1.1a.teIn
+
+  # Compare your output to professor's reference in hw3-tests:
+  ./run_tests.py --ref-dir hw3-tests --diff   # diff OUTPUT_DIR vs hw3-tests (HW3-Train-*.teOut)
+  ./run_tests.py --ref-dir hw3-tests --diff 0 1 2   # only cases 0, 1, 2
 """
 
 from __future__ import annotations
@@ -63,19 +67,29 @@ METRIC_ORDER = [
 def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(add_help=True)
     p.add_argument("--run", action="store_true", help="Run QryEval for each selected case before trec_eval")
-    p.add_argument("--diff", action="store_true", help="Diff aggregate 'all' metrics vs reference in TEST_DIR")
+    p.add_argument("--diff", action="store_true", help="Diff aggregate 'all' metrics vs reference")
+    p.add_argument("--ref-dir", default=None, help="Reference directory (e.g. hw3-tests). If set, discover HW3-Train-*.teOut and diff vs OUTPUT_DIR")
     p.add_argument("--log", default="OUTPUT_DIR/run_test_log.txt", help="Path to log file")
-    p.add_argument("cases", nargs="*", help="Case numbers (e.g., 0 5 16). If omitted, run all HW1-Train-*.param")
+    p.add_argument("cases", nargs="*", help="Case numbers (e.g., 0 5 16). If omitted, run all discovered cases")
     return p.parse_args()
 
 
-def discover_cases() -> List[str]:
-    cases: List[str] = []
+def discover_cases(ref_dir: Path | None = None) -> Tuple[List[str], str]:
+    """Return (case_numbers, prefix). prefix is 'HW1-Train' or 'HW3-Train'."""
+    if ref_dir is not None:
+        ref_dir = Path(ref_dir)
+        cases: List[str] = []
+        for f in sorted(ref_dir.glob("HW3-Train-*.teOut")):
+            m = re.match(r"HW3-Train-(\d+)\.teOut$", f.name)
+            if m:
+                cases.append(m.group(1))
+        return (cases, "HW3-Train")
+    cases = []
     for f in sorted(Path("TEST_DIR").glob("HW1-Train-*.param")):
         m = re.match(r"HW1-Train-(\d+)\.param$", f.name)
         if m:
             cases.append(m.group(1))
-    return cases
+    return (cases, "HW1-Train")
 
 
 def run_subprocess_and_stream(cmd: List[str]) -> int:
@@ -188,10 +202,75 @@ def resolve_inputs(raw_cases: List[str]) -> Tuple[List[str], List[Path]]:
     return case_nums, direct_inputs
 
 
+# Professor's teOut may use "map"; we use "map_cut_1000". Alias for comparison.
+REF_TREC_KEY_ALIAS = {"map": "map_cut_1000"}
+
+
 def extract_all_lines(path: Path) -> List[str]:
     if not path.exists():
         return []
     return sorted([line for line in path.read_text().splitlines() if "\tall\t" in line])
+
+
+def parse_ref_teout(path: Path) -> dict:
+    """Parse professor's .teOut (metric\tquery_id\tvalue) into trec_key -> value for 'all'."""
+    out = {}
+    if not path.exists():
+        return out
+    for line in path.read_text().splitlines():
+        parts = line.split()
+        if len(parts) >= 3 and parts[1] == "all":
+            key = parts[0]
+            key = REF_TREC_KEY_ALIAS.get(key, key)
+            out[key] = parts[2]
+    return out
+
+
+def parse_our_teout(path: Path) -> dict:
+    """Parse our .teout (label\tvalue) into trec_key -> value using METRIC_ORDER."""
+    out = {}
+    if not path.exists():
+        return out
+    label_to_key = {label: key for label, key in METRIC_ORDER}
+    for line in path.read_text().splitlines():
+        parts = line.split("\t")
+        if len(parts) >= 2:
+            label, val = parts[0].strip(), parts[1].strip()
+            key = label_to_key.get(label)
+            if key is not None:
+                out[key] = val
+    return out
+
+
+def diff_hw3_metrics(ref_dir: Path, cases: List[str], out_dir: Path = Path("OUTPUT_DIR")) -> None:
+    """Diff OUTPUT_DIR/HW3-Train-{n}.teout vs ref_dir/HW3-Train-{n}.teOut (metric values)."""
+    print(f"=== Diff: your {out_dir}/HW3-Train-*.teout vs reference {ref_dir}/HW3-Train-*.teOut ===")
+    ref_dir = Path(ref_dir)
+    for num in cases:
+        ref_file = ref_dir / f"HW3-Train-{num}.teOut"
+        out_file = out_dir / f"HW3-Train-{num}.teout"
+        if not ref_file.exists():
+            print(f"  HW3-Train-{num}: skip (no reference {ref_file})")
+            continue
+        if not out_file.exists():
+            print(f"  HW3-Train-{num}: MISSING your output {out_file}")
+            continue
+        ref_vals = parse_ref_teout(ref_file)
+        our_vals = parse_our_teout(out_file)
+        all_keys = sorted(set(ref_vals) | set(our_vals))
+        diffs = []
+        for k in all_keys:
+            r, o = ref_vals.get(k), our_vals.get(k)
+            if r != o:
+                diffs.append((k, r, o))
+        if not diffs:
+            print(f"  HW3-Train-{num}: MATCH")
+        else:
+            print(f"  HW3-Train-{num}: DIFFER")
+            for k, r, o in diffs[:20]:
+                print(f"    {k}: ref={r} yours={o}")
+            if len(diffs) > 20:
+                print(f"    ... ({len(diffs) - 20} more)")
 
 
 def diff_all_metrics(cases: List[str]) -> None:
@@ -237,6 +316,7 @@ def diff_all_metrics(cases: List[str]) -> None:
 
 def main() -> None:
     args = parse_args()
+    ref_dir = Path(args.ref_dir) if args.ref_dir else None
 
     # Ensure OUTPUT_DIR exists before opening the log file
     Path("OUTPUT_DIR").mkdir(parents=True, exist_ok=True)
@@ -251,17 +331,34 @@ def main() -> None:
             sys.stderr = Tee(orig_err, log_file)
 
             # Resolve cases and/or direct input files
-            if args.cases:
+            if ref_dir is not None:
+                all_cases, prefix = discover_cases(ref_dir)
+                if args.cases:
+                    requested = [t for t in args.cases if t.isdigit()]
+                    cases = [c for c in all_cases if c in requested] if requested else all_cases
+                else:
+                    cases = all_cases
+                direct_inputs = []
+            elif args.cases:
                 cases, direct_inputs = resolve_inputs(args.cases)
             else:
-                cases = discover_cases()
+                cases, _ = discover_cases(None)
                 direct_inputs = []
 
             if not cases and not direct_inputs:
                 print("[ERROR] No valid cases or input files found.")
                 sys.exit(2)
 
-            # Basic sanity checks
+            # HW3: compare your OUTPUT_DIR vs professor's ref_dir (diff only)
+            if ref_dir is not None:
+                if args.diff:
+                    diff_hw3_metrics(ref_dir, cases)
+                else:
+                    print(f"Found {len(cases)} HW3-Train cases in {ref_dir}. Use --diff to compare your OUTPUT_DIR/*.teout to reference.")
+                print("Done.")
+                return
+
+            # Basic sanity checks (HW1 path)
             if not QRELVAL.exists():
                 print(f"[ERROR] Missing qrels file: {QRELVAL}")
                 sys.exit(2)
