@@ -133,7 +133,7 @@ class RerankWithLtr:
         if key not in self._idf_cache:
             df  = float(Idx.getDocFreq(field, stem))
             N   = self._N.get(field, 1.0)
-            self._idf_cache[key] = math.log((N - df + 0.5) / (df + 0.5))
+            self._idf_cache[key] = max(0.0, math.log((N - df + 0.5) / (df + 0.5)))
         return self._idf_cache[key]
 
 
@@ -163,7 +163,7 @@ class RerankWithLtr:
 
     # -------------- Feature computation ------------------- #
 
-    def _feature_bm25(self, query_stems, tv, field):
+    def _feature_bm25(self, query_stems, tv, field, docid):
         """
         BM25 score for <query_stems, tv> in the given field.
         Returns None if tv is None (field missing/empty for this doc).
@@ -171,7 +171,9 @@ class RerankWithLtr:
         """
         if tv is None:
             return None
-        doc_len = tv.positionsLength()
+        doc_len = float(Idx.getFieldLength(field, docid))
+        if doc_len == 0:
+            doc_len = float(tv.positionsLength())
         if doc_len == 0:
             return None
 
@@ -190,16 +192,21 @@ class RerankWithLtr:
         return score
 
 
-    def _feature_ql(self, query_stems, tv, field):
+    def _feature_ql(self, query_stems, tv, field, docid):
         """
-        Query Likelihood score with Dirichlet smoothing (Indri AND operator).
-        Returns None if tv is None OR if any query term is absent from tv.
-        P(t|d) = (tf + mu * ctf/sumLen) / (docLen + mu)
-        score  = sum of log P(t|d) for each query term.
+        Query Likelihood score using Lucene's LMDirichletSimilarity formula.
+        Returns None if tv is None (field missing/empty for this doc).
+        Returns 0.0 if the doc has the field but no query terms match (tf=0 for all).
+
+        Per matched term: max(0, log(1 + tf/(mu*p_c)) + log(mu/(docLen+mu)))
+        This makes each matched term contribute non-negatively, so more matched
+        terms yield higher scores (correct ordering for normalization).
         """
         if tv is None:
             return None
-        doc_len = tv.positionsLength()
+        doc_len = float(Idx.getFieldLength(field, docid))
+        if doc_len == 0:
+            doc_len = float(tv.positionsLength())
         if doc_len == 0:
             return None
 
@@ -208,20 +215,21 @@ class RerankWithLtr:
         if sum_len <= 0:
             return None
 
+        doc_len_log = math.log(mu / (doc_len + mu))
         score = 0.0
         for stem in query_stems:
             tf = self._get_stem_tf(tv, stem)
-            if tf == 0.0:
-                return None          # Indri AND: all terms must be present
-
-            ctf  = self._get_ctf(field, stem)
+            if tf <= 0.0:
+                continue
+            ctf = self._get_ctf(field, stem)
+            if ctf <= 0.0:
+                continue
             p_tc = ctf / sum_len
-            p_td = (tf + mu * p_tc) / (doc_len + mu)
-            if p_td <= 0.0:
-                return None
-            score += math.log(p_td)
+            term_score = math.log(1.0 + tf / (mu * p_tc)) + doc_len_log
+            if term_score > 0.0:
+                score += term_score
 
-        return score
+        return score  # 0.0 for 0-overlap docs — included in pool, normalizes to 0
 
 
     def _feature_overlap(self, query_stems, tv):
@@ -280,9 +288,9 @@ class RerankWithLtr:
             tv = self._get_term_vector(docid, field)
 
             if f_bm25 not in self._disabled:
-                fv[f_bm25] = self._feature_bm25(query_stems, tv, field)
+                fv[f_bm25] = self._feature_bm25(query_stems, tv, field, docid)
             if f_ql not in self._disabled:
-                fv[f_ql]   = self._feature_ql(query_stems, tv, field)
+                fv[f_ql]   = self._feature_ql(query_stems, tv, field, docid)
             if f_ol not in self._disabled:
                 fv[f_ol]   = self._feature_overlap(query_stems, tv)
 
@@ -318,7 +326,7 @@ class RerankWithLtr:
         # topical signal; matching query terms there is especially relevant.
         if 19 not in self._disabled:
             tv_kw  = self._get_term_vector(docid, 'keywords')
-            fv[19] = self._feature_bm25(query_stems, tv_kw, 'keywords') if tv_kw is not None else None
+            fv[19] = self._feature_bm25(query_stems, tv_kw, 'keywords', docid) if tv_kw is not None else None
 
         # -- f20: Term overlap for keywords field --
         if 20 not in self._disabled:
