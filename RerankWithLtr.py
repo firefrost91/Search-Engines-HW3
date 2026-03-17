@@ -305,8 +305,6 @@ class RerankWithLtr:
             tv_body = self._get_term_vector(docid, 'body')
             if tv_body is not None:
                 body_len = float(Idx.getFieldLength('body', docid))
-                if body_len <= 0.0:
-                    body_len = float(tv_body.positionsLength())
                 fv[17] = math.log(1.0 + body_len) if body_len > 0.0 else None
             else:
                 fv[17] = None
@@ -537,7 +535,7 @@ class RerankWithLtr:
             if qid not in train_queries:
                 continue
 
-            query_stems = self._tokenize_bow(train_queries[qid])
+            query_stems = QryParser.tokenizeString(train_queries[qid])
             if not query_stems:
                 continue
 
