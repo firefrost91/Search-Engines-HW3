@@ -86,7 +86,8 @@ class QrySopScore(QrySop):
         """
         getScore for the BM25 retrieval model.
         score = IDF * (tf * (k1+1)) / (tf + k1 * (1 - b + b * doclen/avgdoclen))
-        IDF = log((N - df + 0.5) / (df + 0.5) + 1)
+        IDF = max(0, log((N - df + 0.5) / (df + 0.5)))
+        where N is the number of documents that contain this field.
         """
         q_iop = self._args[0]
         if not q_iop.docIteratorHasMatch(r):
@@ -95,7 +96,7 @@ class QrySopScore(QrySop):
         posting = q_iop.docIteratorGetMatchPosting()
         tf = float(posting.tf)
         field = q_iop._field
-        N = float(Idx.getNumDocs())
+        N = float(Idx.getDocCount(field))
         df = float(q_iop.getDf())
         doclen = float(Idx.getFieldLength(field, docid))
         sum_len = float(Idx.getSumOfFieldLengths(field))
@@ -106,7 +107,8 @@ class QrySopScore(QrySop):
             avgdoclen = 1.0
         k1 = r._k1
         b = r._b
-        idf = math.log((N - df + 0.5) / (df + 0.5) + 1.0)
+        rsj = (N - df + 0.5) / (df + 0.5)
+        idf = max(0.0, math.log(rsj)) if rsj > 0.0 else 0.0
         norm = 1.0 - b + b * (doclen / avgdoclen)
         return idf * (tf * (k1 + 1.0)) / (tf + k1 * norm)
 
