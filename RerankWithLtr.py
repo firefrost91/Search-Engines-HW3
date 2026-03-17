@@ -172,9 +172,7 @@ class RerankWithLtr:
         if tv is None:
             return None
         doc_len = float(Idx.getFieldLength(field, docid))
-        if doc_len == 0:
-            doc_len = float(tv.positionsLength())
-        if doc_len == 0:
+        if doc_len <= 0.0:
             return None
 
         avg_len = self._avg_len.get(field, 1.0)
@@ -194,20 +192,23 @@ class RerankWithLtr:
 
     def _feature_ql(self, query_stems, tv, field, docid):
         """
-        Query Likelihood score using Lucene's LMDirichletSimilarity formula.
+        Query Likelihood score using Dirichlet smoothing and an Indri-style
+        AND aggregation.
         Returns None if tv is None (field missing/empty for this doc).
-        Returns 0.0 if the doc has the field but no query terms match (tf=0 for all).
 
-        Per matched term: max(0, log(1 + tf/(mu*p_c)) + log(mu/(docLen+mu)))
-        This makes each matched term contribute non-negatively, so more matched
-        terms yield higher scores (correct ordering for normalization).
+        Per query term t:
+            p(t|d) = (tf(t,d) + mu * p(t|C)) / (docLen + mu)
+            where p(t|C) = ctf(t) / |C|
+
+        Aggregate with geometric mean across query terms (Indri-style #AND):
+            score = exp( (1/|q|) * sum_t log(p(t|d)) )
+
+        Query terms that do not appear in the collection are skipped.
         """
         if tv is None:
             return None
         doc_len = float(Idx.getFieldLength(field, docid))
-        if doc_len == 0:
-            doc_len = float(tv.positionsLength())
-        if doc_len == 0:
+        if doc_len <= 0.0:
             return None
 
         mu      = self._ql_mu
@@ -215,21 +216,24 @@ class RerankWithLtr:
         if sum_len <= 0:
             return None
 
-        doc_len_log = math.log(mu / (doc_len + mu))
-        score = 0.0
+        log_sum = 0.0
+        used_terms = 0
         for stem in query_stems:
             tf = self._get_stem_tf(tv, stem)
-            if tf <= 0.0:
-                continue
             ctf = self._get_ctf(field, stem)
             if ctf <= 0.0:
                 continue
             p_tc = ctf / sum_len
-            term_score = math.log(1.0 + tf / (mu * p_tc)) + doc_len_log
-            if term_score > 0.0:
-                score += term_score
+            p_t_d = (tf + mu * p_tc) / (doc_len + mu)
+            if p_t_d <= 0.0:
+                continue
+            log_sum += math.log(p_t_d)
+            used_terms += 1
 
-        return score  # 0.0 for 0-overlap docs — included in pool, normalizes to 0
+        if used_terms == 0:
+            return 0.0
+
+        return math.exp(log_sum / float(used_terms))
 
 
     def _feature_overlap(self, query_stems, tv):
@@ -300,7 +304,10 @@ class RerankWithLtr:
         if 17 not in self._disabled:
             tv_body = self._get_term_vector(docid, 'body')
             if tv_body is not None:
-                fv[17] = math.log(1.0 + tv_body.positionsLength())
+                body_len = float(Idx.getFieldLength('body', docid))
+                if body_len <= 0.0:
+                    body_len = float(tv_body.positionsLength())
+                fv[17] = math.log(1.0 + body_len) if body_len > 0.0 else None
             else:
                 fv[17] = None
 
@@ -437,9 +444,8 @@ class RerankWithLtr:
                 '-ranker', str(self._params.get('ltr:RankLib:model', 4)),
                 '-save',   model_path,
             ]
-            metric = self._params.get('ltr:RankLib:metric2t')
-            if metric:
-                args += ['-metric2t', str(metric)]
+            metric = self._params.get('ltr:RankLib:metric2t', 'MAP')
+            args += ['-metric2t', str(metric)]
             PyLu.RankLib.main(args)
 
 
@@ -571,17 +577,10 @@ class RerankWithLtr:
 
     def _tokenize_bow(self, qstring):
         """
-        Convert qstring to a BOW query, then tokenize and deduplicate stems.
-        Deduplication prevents double-counting when the same stem appears
-        in both the original and expanded parts of a PRF query.
+        Convert qstring to a BOW query, then tokenize to stop/stemmed terms.
         """
         bow = QryParser.bowQuery(qstring)
-        stems = QryParser.tokenizeString(bow)
-        # Deduplicate while preserving order (dict preserves insertion order).
-        seen = {}
-        for s in stems:
-            seen[s] = None
-        return list(seen.keys())
+        return QryParser.tokenizeString(bow)
 
 
     def rerank(self, batch):
