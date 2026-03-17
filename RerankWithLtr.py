@@ -172,9 +172,7 @@ class RerankWithLtr:
         if tv is None:
             return None
         doc_len = float(Idx.getFieldLength(field, docid))
-        if doc_len == 0:
-            doc_len = float(tv.positionsLength())
-        if doc_len == 0:
+        if doc_len <= 0.0:
             return None
 
         avg_len = self._avg_len.get(field, 1.0)
@@ -210,9 +208,7 @@ class RerankWithLtr:
         if tv is None:
             return None
         doc_len = float(Idx.getFieldLength(field, docid))
-        if doc_len == 0:
-            doc_len = float(tv.positionsLength())
-        if doc_len == 0:
+        if doc_len <= 0.0:
             return None
 
         mu      = self._ql_mu
@@ -308,7 +304,10 @@ class RerankWithLtr:
         if 17 not in self._disabled:
             tv_body = self._get_term_vector(docid, 'body')
             if tv_body is not None:
-                fv[17] = math.log(1.0 + tv_body.positionsLength())
+                body_len = float(Idx.getFieldLength('body', docid))
+                if body_len <= 0.0:
+                    body_len = float(tv_body.positionsLength())
+                fv[17] = math.log(1.0 + body_len) if body_len > 0.0 else None
             else:
                 fv[17] = None
 
@@ -445,9 +444,8 @@ class RerankWithLtr:
                 '-ranker', str(self._params.get('ltr:RankLib:model', 4)),
                 '-save',   model_path,
             ]
-            metric = self._params.get('ltr:RankLib:metric2t')
-            if metric:
-                args += ['-metric2t', str(metric)]
+            metric = self._params.get('ltr:RankLib:metric2t', 'MAP')
+            args += ['-metric2t', str(metric)]
             PyLu.RankLib.main(args)
 
 
