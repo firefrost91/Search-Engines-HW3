@@ -43,24 +43,32 @@ QRELVAL = Path("INPUT_DIR/cw09a.adhoc.1-200.qrel.indexed")
 TREC_EVAL = Path("INPUT_DIR/trec_eval-9.0.4")
 
 METRICS = [
+    "-m", "num_q",
+    "-m", "num_ret",
+    "-m", "num_rel",
+    "-m", "num_rel_ret",
+    "-m", "map",
     "-m", "recip_rank",
     "-m", "P.10,20,30",
-    "-m", "map_cut.1000",
+    "-m", "ndcg",
     "-m", "ndcg_cut.10,20,30",
-    "-m", "recall.100,1000",
 ]
 
+# Display order for printing (label -> trec_eval key).
 METRIC_ORDER = [
-    ("MRR", "recip_rank"),
-    ("P@10", "P_10"),
-    ("P@20", "P_20"),
-    ("P@30", "P_30"),
-    ("MAP@1K", "map_cut_1000"),
-    ("NDCG@10", "ndcg_cut_10"),
-    ("NDCG@20", "ndcg_cut_20"),
-    ("NDCG@30", "ndcg_cut_30"),
-    ("R@100", "recall_100"),
-    ("R@1000", "recall_1000"),
+    ("num_q",     "num_q"),
+    ("num_ret",   "num_ret"),
+    ("num_rel",   "num_rel"),
+    ("num_rel_ret", "num_rel_ret"),
+    ("MAP",       "map"),
+    ("MRR",       "recip_rank"),
+    ("P@10",      "P_10"),
+    ("P@20",      "P_20"),
+    ("P@30",      "P_30"),
+    ("NDCG",      "ndcg"),
+    ("NDCG@10",   "ndcg_cut_10"),
+    ("NDCG@20",   "ndcg_cut_20"),
+    ("NDCG@30",   "ndcg_cut_30"),
 ]
 
 
@@ -166,21 +174,21 @@ def run_trec_eval(cases: List[str], direct_inputs: List[Path]) -> None:
 
 
 def write_selected_metrics(out_path: Path, trec_output: str) -> None:
+    """Write trec_eval output lines directly (same format as professor's .teOut)."""
+    # Keep all lines; filter to only the metrics we care about for display.
+    all_lines = [l for l in trec_output.splitlines() if l.strip()]
+    out_path.write_text("\n".join(all_lines) + "\n")
+    print(f"    wrote {out_path}")
+
+    # Print a summary of 'all' metrics for the configured METRIC_ORDER.
     values = {}
-    for line in trec_output.splitlines():
+    for line in all_lines:
         parts = line.split()
         if len(parts) >= 3 and parts[1] == "all":
             values[parts[0]] = parts[2]
-
-    lines = []
     for label, trec_key in METRIC_ORDER:
         val = values.get(trec_key, "NA")
-        lines.append(f"{label}\t{val}")
-
-    out_path.write_text("\n".join(lines) + "\n")
-    print(f"    wrote {out_path}")
-    for line in lines:
-        print(line)
+        print(f"  {label}\t{val}")
 
 
 def resolve_inputs(raw_cases: List[str]) -> Tuple[List[str], List[Path]]:
@@ -202,44 +210,30 @@ def resolve_inputs(raw_cases: List[str]) -> Tuple[List[str], List[Path]]:
     return case_nums, direct_inputs
 
 
-# Professor's teOut may use "map"; we use "map_cut_1000". Alias for comparison.
-REF_TREC_KEY_ALIAS = {"map": "map_cut_1000"}
-
-
 def extract_all_lines(path: Path) -> List[str]:
     if not path.exists():
         return []
     return sorted([line for line in path.read_text().splitlines() if "\tall\t" in line])
 
 
-def parse_ref_teout(path: Path) -> dict:
-    """Parse professor's .teOut (metric\tquery_id\tvalue) into trec_key -> value for 'all'."""
+def _parse_teout(path: Path) -> dict:
+    """Parse a .teOut/.teout file (metric  qid  value) into trec_key -> value for 'all'."""
     out = {}
     if not path.exists():
         return out
     for line in path.read_text().splitlines():
         parts = line.split()
         if len(parts) >= 3 and parts[1] == "all":
-            key = parts[0]
-            key = REF_TREC_KEY_ALIAS.get(key, key)
-            out[key] = parts[2]
+            out[parts[0]] = parts[2]
     return out
+
+
+def parse_ref_teout(path: Path) -> dict:
+    return _parse_teout(path)
 
 
 def parse_our_teout(path: Path) -> dict:
-    """Parse our .teout (label\tvalue) into trec_key -> value using METRIC_ORDER."""
-    out = {}
-    if not path.exists():
-        return out
-    label_to_key = {label: key for label, key in METRIC_ORDER}
-    for line in path.read_text().splitlines():
-        parts = line.split("\t")
-        if len(parts) >= 2:
-            label, val = parts[0].strip(), parts[1].strip()
-            key = label_to_key.get(label)
-            if key is not None:
-                out[key] = val
-    return out
+    return _parse_teout(path)
 
 
 def diff_hw3_metrics(ref_dir: Path, cases: List[str], out_dir: Path = Path("OUTPUT_DIR")) -> None:

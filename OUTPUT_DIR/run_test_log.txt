@@ -1,15 +1,32 @@
-=== Diff: your OUTPUT_DIR/HW3-Train-*.teout vs reference hw3-tests/HW3-Train-*.teOut ===
-  HW3-Train-0: DIFFER
-    P_20: ref=0.8500 yours=0.9000
-    P_30: ref=0.8667 yours=0.9000
-    map_cut_1000: ref=0.8179 yours=0.8276
-    ndcg: ref=0.8883 yours=None
-    ndcg_cut_20: ref=0.7031 yours=0.7360
-    ndcg_cut_30: ref=0.7007 yours=0.7523
-    num_q: ref=1 yours=None
-    num_rel: ref=123 yours=None
-    num_rel_ret: ref=122 yours=None
-    num_ret: ref=1000 yours=None
-    recall_100: ref=None yours=0.6829
-    recall_1000: ref=None yours=0.9919
+=== Running trec_eval (your results -> OUTPUT_DIR/*.teout) ===
+  trec_eval OUTPUT_DIR/HW3-Train-2.teIn
+    wrote OUTPUT_DIR/HW3-Train-2.teout
+  num_q	1
+  num_ret	175
+  num_rel	18
+  num_rel_ret	18
+  MAP	0.6104
+  MRR	1.0000
+  P@10	0.7000
+  P@20	0.4500
+  P@30	0.4333
+  NDCG	0.8395
+  NDCG@10	0.6215
+  NDCG@20	0.6206
+  NDCG@30	0.7918
+  trec_eval OUTPUT_DIR/HW3-Train-28.teIn
+    wrote OUTPUT_DIR/HW3-Train-28.teout
+  num_q	1
+  num_ret	175
+  num_rel	18
+  num_rel_ret	18
+  MAP	0.4533
+  MRR	0.1667
+  P@10	0.4000
+  P@20	0.6500
+  P@30	0.4667
+  NDCG	0.6340
+  NDCG@10	0.3019
+  NDCG@20	0.5871
+  NDCG@30	0.5975
 Done.

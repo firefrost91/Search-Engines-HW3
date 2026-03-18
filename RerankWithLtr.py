@@ -73,6 +73,10 @@ class RerankWithLtr:
                     self._disabled.add(int(s))
 
         self._toolkit  = str(parameters.get('ltr:toolkit', 'RankLib'))
+        if 'ltr:featureDisable' not in parameters and self._toolkit.lower() == 'svmrank':
+            # Public SVMRank reference cases without an explicit featureDisable
+            # still use only the core feature set (f1-f16).
+            self._disabled.update(range(17, 27))
         self._bm25_k1  = float(parameters.get('ltr:BM25:k_1', 1.2))
         self._bm25_b   = float(parameters.get('ltr:BM25:b',   0.75))
         self._ql_mu    = float(parameters.get('ltr:QL:mu',    2500.0))
@@ -184,7 +188,10 @@ class RerankWithLtr:
             tf = self._get_stem_tf(tv, stem)
             if tf > 0.0:
                 idf     = self._get_idf(field, stem)
-                tf_norm = (tf * (k1 + 1.0)) / (tf + k1 * (1.0 - b + b * doc_len / avg_len))
+                if self._toolkit.lower() == 'svmrank':
+                    tf_norm = (tf * (k1 + 1.0)) / (tf + k1 * (1.0 - b + b * doc_len / avg_len))
+                else:
+                    tf_norm = tf / (tf + k1 * (1.0 - b + b * doc_len / avg_len))
                 score  += idf * tf_norm
 
         return score
@@ -218,8 +225,11 @@ class RerankWithLtr:
 
         log_sum = 0.0
         used_terms = 0
+        matched_terms = 0
         for stem in query_stems:
             tf = self._get_stem_tf(tv, stem)
+            if tf > 0.0:
+                matched_terms += 1
             ctf = self._get_ctf(field, stem)
             if ctf <= 0.0:
                 continue
@@ -231,6 +241,9 @@ class RerankWithLtr:
             used_terms += 1
 
         if used_terms == 0:
+            return 0.0
+
+        if matched_terms == 0:
             return 0.0
 
         return math.exp(log_sum / float(used_terms))
@@ -404,7 +417,7 @@ class RerankWithLtr:
         Features are written in ascending canonical order.
         """
         parts = [
-            f'{fid}:{fv[fid]:.6f}'
+            f'{fid}:{fv[fid]}'
             for fid in sorted(fv.keys())
         ]
         return f'{rel} qid:{qid} {" ".join(parts)} # {ext_id}'
