@@ -58,6 +58,17 @@ class Reranker:
         for qid in batch:
             old_ranking = batch[qid]['ranking']
             new_ranking = top_batch[qid]['ranking']
+            expected_top = min(len(old_ranking), self._rerank_depth)
+
+            if expected_top == 0:
+                batch[qid]['ranking'] = old_ranking
+                continue
+
+            # If reranking loses documents unexpectedly, preserve the
+            # original ranking instead of returning a truncated result.
+            if len(new_ranking) < expected_top:
+                batch[qid]['ranking'] = old_ranking
+                continue
 
             if len(old_ranking) > len(new_ranking):
 

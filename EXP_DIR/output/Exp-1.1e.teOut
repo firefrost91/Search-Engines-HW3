@@ -1,0 +1,12 @@
+num_ret               	all	12000
+num_rel               	all	442
+num_rel_ret           	all	435
+map                   	all	0.3719
+recip_rank            	all	0.7133
+P_10                  	all	0.4667
+P_20                  	all	0.4000
+P_30                  	all	0.3667
+ndcg                  	all	0.6248
+ndcg_cut_10           	all	0.4042
+ndcg_cut_20           	all	0.3901
+ndcg_cut_30           	all	0.4306

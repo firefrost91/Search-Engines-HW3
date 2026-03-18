@@ -35,11 +35,14 @@ class RerankWithLtr:
       f14 - BM25 score for <q, d_inlink>
       f15 - Query Likelihood (Dirichlet) for <q, d_inlink>[Indri AND]
       f16 - Term overlap for <q, d_inlink>
-      f17 - log(1 + body field length): document depth hypothesis
-      f18 - Fraction of unique body stems that match a query term:
-            measures how query-focused the document vocabulary is
-      f19 - BM25 score for <q, d_keywords>
-      f20 - Term overlap for <q, d_keywords>
+      f17 - IDF-weighted body coverage:
+            fraction of query-term weight matched in body
+      f18 - Query-window density in body:
+            rewards query terms that occur close together
+      f19 - Reciprocal first-hit position in title:
+            rewards title matches that happen early
+      f20 - IDF-weighted cross-field support:
+            rewards query terms corroborated across body/title/url/inlink/keywords
 
     Caching strategy (design guide efficiency requirement):
       - Corpus-wide constants (N, sum_len, avg_len per field) are computed
@@ -250,6 +253,163 @@ class RerankWithLtr:
         return float(count)
 
 
+    def _unique_query_terms(self, query_stems):
+        """
+        Return query terms with duplicates removed, preserving order.
+        """
+        return list(dict.fromkeys(query_stems))
+
+
+    def _feature_weighted_coverage(self, query_stems, tv, field):
+        """
+        IDF-weighted fraction of unique query terms matched in a field.
+
+        Weight each query term by (1 + idf) so the score remains defined
+        even when a term's RSJ idf is 0.
+        """
+        if tv is None:
+            return None
+
+        query_terms = self._unique_query_terms(query_stems)
+        if not query_terms:
+            return 0.0
+
+        matched_weight = 0.0
+        total_weight = 0.0
+
+        for stem in query_terms:
+            weight = 1.0 + self._get_idf(field, stem)
+            total_weight += weight
+            if tv.indexOfStem(stem) >= 0:
+                matched_weight += weight
+
+        if total_weight <= 0.0:
+            return 0.0
+
+        return matched_weight / total_weight
+
+
+    def _feature_window_density(self, query_stems, tv):
+        """
+        Query-term compactness in body.
+
+        For each k from 2..|q|, find the tightest span containing at least k
+        distinct query terms and score it as:
+
+            (k / |q|) * (k / window_width)
+
+        This rewards windows that cover more of the query in fewer tokens.
+        """
+        if tv is None:
+            return None
+
+        query_terms = self._unique_query_terms(query_stems)
+        num_query_terms = len(query_terms)
+        if num_query_terms < 2:
+            return 0.0
+
+        query_set = set(query_terms)
+        occurrences = []
+
+        for pos in range(tv.positionsLength()):
+            stem_i = tv.positions[pos]
+            if stem_i <= 0:
+                continue
+            stem = str(tv.stemString(stem_i))
+            if stem in query_set:
+                occurrences.append((pos, stem))
+
+        if len(occurrences) < 2:
+            return 0.0
+
+        best = 0.0
+        for need in range(2, num_query_terms + 1):
+            counts = {}
+            have = 0
+            left = 0
+            min_width = None
+
+            for right, (rpos, rterm) in enumerate(occurrences):
+                counts[rterm] = counts.get(rterm, 0) + 1
+                if counts[rterm] == 1:
+                    have += 1
+
+                while have >= need and left <= right:
+                    lpos, lterm = occurrences[left]
+                    width = rpos - lpos + 1
+                    if min_width is None or width < min_width:
+                        min_width = width
+
+                    counts[lterm] -= 1
+                    if counts[lterm] == 0:
+                        del counts[lterm]
+                        have -= 1
+                    left += 1
+
+            if min_width is not None:
+                coverage = float(need) / float(num_query_terms)
+                density = float(need) / float(min_width)
+                best = max(best, coverage * density)
+
+        return best
+
+
+    def _feature_first_hit(self, query_stems, tv):
+        """
+        Reciprocal of the earliest matching query-term position in a field.
+
+        A match at position 0 gets score 1.0, position 1 gets 0.5, etc.
+        """
+        if tv is None:
+            return None
+
+        query_set = set(query_stems)
+        if not query_set:
+            return 0.0
+
+        for pos in range(tv.positionsLength()):
+            stem_i = tv.positions[pos]
+            if stem_i <= 0:
+                continue
+            stem = str(tv.stemString(stem_i))
+            if stem in query_set:
+                return 1.0 / float(1 + pos)
+
+        return 0.0
+
+
+    def _feature_cross_field_support(self, query_stems, docid):
+        """
+        IDF-weighted average fraction of fields that support each query term.
+
+        Query terms that appear across multiple fields receive more credit
+        than terms that appear in only one location.
+        """
+        query_terms = self._unique_query_terms(query_stems)
+        if not query_terms:
+            return 0.0
+
+        total_weight = 0.0
+        support = 0.0
+
+        for stem in query_terms:
+            weight = 1.0 + self._get_idf('body', stem)
+            total_weight += weight
+
+            matched_fields = 0
+            for field in self._ALL_FIELDS:
+                tv = self._get_term_vector(docid, field)
+                if tv is not None and tv.indexOfStem(stem) >= 0:
+                    matched_fields += 1
+
+            support += weight * (float(matched_fields) / float(len(self._ALL_FIELDS)))
+
+        if total_weight <= 0.0:
+            return 0.0
+
+        return support / total_weight
+
+
     def _generate_feature_vector(self, docid, query_stems):
         """
         Generate a feature vector for (docid, query_stems).
@@ -298,45 +458,24 @@ class RerankWithLtr:
             if f_ol not in self._disabled:
                 fv[f_ol]   = self._feature_overlap(query_stems, tv)
 
-        # -- f17: log(1 + body length) — document depth/comprehensiveness --
-        # Hypothesis: very short or very long pages are less likely to be
-        # authoritative answers; a moderate log-length is a proxy for depth.
+        tv_body = self._get_term_vector(docid, 'body')
+        tv_title = self._get_term_vector(docid, 'title')
+
+        # -- f17: IDF-weighted body coverage --
         if 17 not in self._disabled:
-            tv_body = self._get_term_vector(docid, 'body')
-            if tv_body is not None:
-                body_len = float(Idx.getFieldLength('body', docid))
-                fv[17] = math.log(1.0 + body_len) if body_len > 0.0 else None
-            else:
-                fv[17] = None
+            fv[17] = self._feature_weighted_coverage(query_stems, tv_body, 'body')
 
-        # -- f18: query-term coverage ratio in body --
-        # Fraction of unique body stems that are also query terms.
-        # Hypothesis: a document whose vocabulary is more query-focused
-        # is likely to be about the query topic.
+        # -- f18: query-window density in body --
         if 18 not in self._disabled:
-            tv_body = self._get_term_vector(docid, 'body')
-            fv[18] = None
-            if tv_body is not None:
-                n_unique = tv_body.stemsLength()  # index 0 = stopword slot
-                if n_unique > 1:
-                    query_set = set(query_stems)
-                    hits = sum(
-                        1 for i in range(1, n_unique)
-                        if str(tv_body.stemString(i)) in query_set
-                    )
-                    fv[18] = float(hits) / float(n_unique - 1)
+            fv[18] = self._feature_window_density(query_stems, tv_body)
 
-        # -- f19: BM25 for keywords field --
-        # Hypothesis: keyword metadata assigned by the author is a strong
-        # topical signal; matching query terms there is especially relevant.
+        # -- f19: reciprocal first-hit position in title --
         if 19 not in self._disabled:
-            tv_kw  = self._get_term_vector(docid, 'keywords')
-            fv[19] = self._feature_bm25(query_stems, tv_kw, 'keywords', docid) if tv_kw is not None else None
+            fv[19] = self._feature_first_hit(query_stems, tv_title)
 
-        # -- f20: Term overlap for keywords field --
+        # -- f20: IDF-weighted cross-field support --
         if 20 not in self._disabled:
-            tv_kw  = self._get_term_vector(docid, 'keywords')
-            fv[20] = self._feature_overlap(query_stems, tv_kw) if tv_kw is not None else None
+            fv[20] = self._feature_cross_field_support(query_stems, docid)
 
         return fv
 
@@ -404,7 +543,7 @@ class RerankWithLtr:
         Features are written in ascending canonical order.
         """
         parts = [
-            f'{fid}:{fv[fid]:.6f}'
+            f'{fid}:{fv[fid]}'
             for fid in sorted(fv.keys())
         ]
         return f'{rel} qid:{qid} {" ".join(parts)} # {ext_id}'
