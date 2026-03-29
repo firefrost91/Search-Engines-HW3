@@ -1,0 +1,1 @@
+101:#wsum( 0.11 #sum( ritz.title carlton.title lake.title las.title vegas.title ) 0.57 #sum( ritz.body carlton.body lake.body las.body vegas.body ) 0.43 #sum( ritz.url carlton.url lake.url las.url vegas.url ) 0.71 #sum( ritz.keywords carlton.keywords lake.keywords las.keywords vegas.keywords ) )

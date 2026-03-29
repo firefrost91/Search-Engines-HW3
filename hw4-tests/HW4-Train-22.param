@@ -1,0 +1,44 @@
+{
+    "indexPath": "INPUT_DIR/index-cw09",
+    "queryFilePath": "TEST_DIR/HW4-Train-22.qry",
+    "task_1:ranker": {
+        "type": "inRankFile",
+        "BM25:b": "0.75",
+        "BM25:k_1": "1.2",
+        "inRankFile:type": "BM25",
+        "inRankFile:Path": "TEST_DIR/HW4-Train-22.inRank",
+        "inRankFile:outputLength": "1000"
+    },
+    "task_2:reranker": {
+        "type": "bertrr",
+        "rerankDepth": "80",
+        "bertrr:maxSeqLength": "512",
+        "bertrr:modelPath": "INPUT_DIR/ms-marco-MiniLM-L-6-v2",
+        "bertrr:scoreAggregation": "maxp",
+        "bertrr:psgCnt": "4",
+        "bertrr:psgLen": "150",
+        "bertrr:psgStride": "135",
+        "bertrr:maxTitleLength": "16"
+    },
+    "task_3:reranker": {
+        "type": "ltr",
+        "rerankDepth": "20",
+        "ltr:BM25:b": "0.5",
+        "ltr:BM25:k_1": "1.4",
+        "ltr:QL:mu": "2500",
+        "ltr:featureDisable": "17,18,19,20,21,22,23,24,25,26",
+        "ltr:toolkit": "RankLib",
+        "ltr:RankLib:model": "7",
+        "ltr:trainingQrelsFile": "TEST_DIR/HW4-Train-22.trainQrels",
+        "ltr:trainingQueryFile": "TEST_DIR/HW4-Train-22.trainQry",
+        "ltr:trainingFeatureVectorsFile": "OUTPUT_DIR/HW4-Train-22.LtrTrain",
+        "ltr:modelFile": "OUTPUT_DIR/HW4-Train-22.Model",
+        "ltr:testingFeatureVectorsFile": "OUTPUT_DIR/HW4-Train-22.LtrTest",
+        "ltr:testingDocumentScores": "OUTPUT_DIR/HW4-Train-22.DocScore"
+    },
+    "task_5:output": {
+        "type": "trec_eval",
+        "outputPath": "OUTPUT_DIR/HW4-Train-22.teIn",
+        "outputLength": "1000"
+    }
+}

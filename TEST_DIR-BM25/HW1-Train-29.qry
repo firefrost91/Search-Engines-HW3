@@ -1,0 +1,3 @@
+22:#wsum( 0.45 #sum( rick.title warren.title ) 0.44 #sum( rick.body warren.body ) 0.61 #sum( rick.url warren.url ) 0.45 #sum( rick.keywords warren.keywords ) )
+80:#wsum( 0.65 #sum( keyboard.title reviews.title ) 0.27 #sum( keyboard.body reviews.body ) 0.88 #sum( keyboard.url reviews.url ) 0.89 #sum( keyboard.keywords reviews.keywords ) )
+124:#wsum( 0.30 #sum( bowflex.title power.title pro.title ) 0.28 #sum( bowflex.body power.body pro.body ) 0.42 #sum( bowflex.url power.url pro.url ) 0.23 #sum( bowflex.keywords power.keywords pro.keywords ) )

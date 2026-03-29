@@ -9,6 +9,7 @@ import math
 import Util
 
 from Idx import Idx
+from QryParser import QryParser
 
 
 class RewriteWithPrf:
@@ -34,8 +35,11 @@ class RewriteWithPrf:
 
         self._num_docs = int(parameters['prf:numDocs'])
         self._num_terms = int(parameters['prf:numTerms'])
-        self._field_in = parameters.get('prf:expansionFieldIn', 'body')
-        self._field_out = parameters.get('prf:expansionFieldOut', 'body')
+        # Support the homework alias prf:expansionField for the common case
+        # where expansion reads from and writes to the same field.
+        default_field = parameters.get('prf:expansionField', 'body')
+        self._field_in = parameters.get('prf:expansionFieldIn', default_field)
+        self._field_out = parameters.get('prf:expansionFieldOut', default_field)
         self._qry_out_path = parameters.get('prf:expansionQueryFile')
         self._orig_weight = parameters.get('prf:rm3:origWeight')
         if self._orig_weight is not None:
@@ -68,7 +72,8 @@ class RewriteWithPrf:
                 raise Exception('Error: Missing ranking for PRF rewriter.')
 
             ranking = batch[qid]['ranking']
-            term_scores = self._score_terms(ranking)
+            query_terms = self._tokenize_feedback_query(batch[qid]['qstring'])
+            term_scores = self._score_terms(ranking, query_terms)
             top_terms = self._select_terms(term_scores)
 
             learned_query = self._build_learned_query(top_terms)
@@ -101,7 +106,7 @@ class RewriteWithPrf:
 
         orig_subquery = self._wrap_query(original_qstring)
         exp_weight = 1.0 - float(self._orig_weight)
-        return f'#wsum ({self._orig_weight} {orig_subquery} {exp_weight} {learned_query})'
+        return f'#WSUM( {self._orig_weight} {orig_subquery} {exp_weight} {learned_query} )'
 
 
     def _build_learned_query(self, term_scores):
@@ -114,12 +119,11 @@ class RewriteWithPrf:
                 total = 1.0
             parts = []
             for term, score in term_scores:
-                weight = score / total
-                parts.append(f'{weight:.6f} {self._format_term(term)}')
-            return '#wsum (' + ' '.join(parts) + ')'
+                parts.append(f'{score / total} {self._format_term(term)}')
+            return '#WSUM( ' + ' '.join(parts) + ' )'
 
         terms = [self._format_term(term) for term, _ in term_scores]
-        return '#sum (' + ' '.join(terms) + ')'
+        return '#SUM( ' + ' '.join(terms) + ' )'
 
 
     def _format_term(self, term):
@@ -140,30 +144,49 @@ class RewriteWithPrf:
         rsj = self._rsj_cache.get(term)
         if rsj is None:
             df = float(Idx.getDocFreq(self._field_in, term))
-            rsj = math.log((self._num_docs_total - df + 0.5) / (df + 0.5))
+            # PRF scores should use statistics from the expansion field rather
+            # than the whole collection so title/url/inlink expansions are
+            # weighted against the right document universe.
+            doc_count = self._doc_count_field if self._doc_count_field > 0 else self._num_docs_total
+            rsj = math.log((doc_count - df + 0.5) / (df + 0.5))
             self._rsj_cache[term] = rsj
         tf_weight = tf / (tf + 0.5 + (1.5 * (doc_len / self._avg_doc_len)))
         return tf_weight * rsj
 
 
-    def _score_terms(self, ranking):
+    def _query_likelihood_log_weight(self, tv, doc_len, query_terms):
+        """
+        Return log p(q|d) with no smoothing. If any query term is absent,
+        the document provides no evidence for RM3.
+        """
+        if not query_terms:
+            return None
+
+        log_weight = 0.0
+        for term in query_terms:
+            term_idx = tv.indexOfStem(term)
+            if term_idx < 0:
+                return None
+
+            tf = float(tv.stemFreq(term_idx))
+            if tf <= 0:
+                return None
+
+            log_weight += math.log(tf / doc_len)
+
+        return log_weight
+
+
+    def _score_terms(self, ranking, query_terms):
         term_scores = {}
         top_docs = ranking[:self._num_docs]
         if not top_docs:
             return term_scores
 
-        doc_weights = None
-        if self._algorithm == 'rm3':
-            scores = [score for score, _ in top_docs]
-            max_score = max(scores)
-            exp_scores = [math.exp(score - max_score) for score in scores]
-            sum_exp = sum(exp_scores)
-            if sum_exp <= 0:
-                doc_weights = [1.0 / len(top_docs)] * len(top_docs)
-            else:
-                doc_weights = [s / sum_exp for s in exp_scores]
+        doc_infos = []
+        max_log_weight = None
 
-        for i, (score, external_id) in enumerate(top_docs):
+        for _, external_id in top_docs:
             docid = Idx.getInternalDocid(external_id)
             tv = Idx.getTermVector(docid, self._field_in)
             if tv is None or tv.stemsLength() == 0:
@@ -173,7 +196,20 @@ class RewriteWithPrf:
             if doc_len <= 0:
                 continue
 
-            weight_doc = doc_weights[i] if doc_weights is not None else 1.0
+            log_weight = None
+            if self._algorithm == 'rm3':
+                log_weight = self._query_likelihood_log_weight(tv, doc_len, query_terms)
+                if log_weight is None:
+                    continue
+                if max_log_weight is None or log_weight > max_log_weight:
+                    max_log_weight = log_weight
+
+            doc_infos.append((tv, doc_len, log_weight))
+
+        for tv, doc_len, log_weight in doc_infos:
+            weight_doc = 1.0
+            if self._algorithm == 'rm3':
+                weight_doc = math.exp(log_weight - max_log_weight)
 
             for stem_i in range(1, tv.stemsLength()):
                 term_obj = tv.stemString(stem_i)
@@ -212,4 +248,12 @@ class RewriteWithPrf:
 
     def _wrap_query(self, qstring):
         qstring = qstring.strip()
-        return f'#sum ({qstring})'
+        return f'#SUM( {qstring} )'
+
+
+    def _tokenize_feedback_query(self, qstring):
+        """
+        Convert the current query string into stopword-removed, stemmed BOW
+        terms for feedback scoring.
+        """
+        return QryParser.tokenizeString(QryParser.bowQuery(qstring))

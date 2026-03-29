@@ -1,0 +1,13 @@
+{
+    "indexPath": "INPUT_DIR/index-cw09",
+    "queryFilePath": "TEST_DIR/HW1-Train-19.qry",
+    "task_1:ranker": {
+        "outputLength": "50",
+        "type": "RankedBoolean"
+    },
+    "task_2:output": {
+        "type": "trec_eval",
+        "outputPath": "OUTPUT_DIR/HW1-Train-19.teIn",
+        "outputLength": "1000"
+    }
+}

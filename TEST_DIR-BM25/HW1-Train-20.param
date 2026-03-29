@@ -1,0 +1,15 @@
+{
+    "indexPath": "INPUT_DIR/index-cw09",
+    "queryFilePath": "TEST_DIR/HW1-Train-20.qry",
+    "task_1:ranker": {
+        "outputLength": "50",
+        "type": "BM25",
+        "BM25:k_1": "0.85",
+        "BM25:b": "0.66"
+    },
+    "task_2:output": {
+        "type": "trec_eval",
+        "outputPath": "OUTPUT_DIR/HW1-Train-20.teIn",
+        "outputLength": "1000"
+    }
+}

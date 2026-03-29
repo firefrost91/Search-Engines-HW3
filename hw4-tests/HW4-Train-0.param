@@ -1,0 +1,24 @@
+{
+    "indexPath": "INPUT_DIR/index-cw09",
+    "queryFilePath": "TEST_DIR/HW4-Train-0.qry",
+    "task_1:ranker": {
+        "type": "BM25",
+        "BM25:b": "0.75",
+        "BM25:k_1": "1.2"
+    },
+    "task_2:reranker": {
+        "type": "bertrr",
+        "rerankDepth": "50",
+        "bertrr:maxSeqLength": "512",
+        "bertrr:modelPath": "INPUT_DIR/ms-marco-MiniLM-L-12-v2",
+        "bertrr:scoreAggregation": "firstp",
+        "bertrr:psgCnt": "1",
+        "bertrr:psgLen": "300",
+        "bertrr:maxTitleLength": "0"
+    },
+    "task_5:output": {
+        "type": "trec_eval",
+        "outputPath": "OUTPUT_DIR/HW4-Train-0.teIn",
+        "outputLength": "1000"
+    }
+}

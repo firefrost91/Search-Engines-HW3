@@ -43,30 +43,48 @@ QRELVAL = Path("INPUT_DIR/cw09a.adhoc.1-200.qrel.indexed")
 TREC_EVAL = Path("INPUT_DIR/trec_eval-9.0.4")
 
 METRICS = [
+    "-m", "num_q",
     "-m", "num_ret",
     "-m", "num_rel",
     "-m", "num_rel_ret",
     "-m", "map",
     "-m", "recip_rank",
-    "-m", "P.10,20,30",
+    "-m", "P.5,10,15,20,30,100,200,500,1000",
+    "-m", "recall.100,500,1000",
     "-m", "ndcg",
-    "-m", "ndcg_cut.10,20,30",
+    "-m", "ndcg_cut.5,10,15,20,30,100,200,500,1000",
 ]
 
 # Display order for printing (label -> trec_eval key).
 METRIC_ORDER = [
-    ("num_ret",   "num_ret"),
-    ("num_rel",   "num_rel"),
+    ("num_q",       "num_q"),
+    ("num_ret",     "num_ret"),
+    ("num_rel",     "num_rel"),
     ("num_rel_ret", "num_rel_ret"),
-    ("MAP",       "map"),
-    ("MRR",       "recip_rank"),
-    ("P@10",      "P_10"),
-    ("P@20",      "P_20"),
-    ("P@30",      "P_30"),
-    ("NDCG",      "ndcg"),
-    ("NDCG@10",   "ndcg_cut_10"),
-    ("NDCG@20",   "ndcg_cut_20"),
-    ("NDCG@30",   "ndcg_cut_30"),
+    ("MAP",         "map"),
+    ("MRR",         "recip_rank"),
+    ("P@5",         "P_5"),
+    ("P@10",        "P_10"),
+    ("P@15",        "P_15"),
+    ("P@20",        "P_20"),
+    ("P@30",        "P_30"),
+    ("P@100",       "P_100"),
+    ("P@200",       "P_200"),
+    ("P@500",       "P_500"),
+    ("P@1000",      "P_1000"),
+    ("Recall@100",  "recall_100"),
+    ("Recall@500",  "recall_500"),
+    ("Recall@1000", "recall_1000"),
+    ("NDCG",        "ndcg"),
+    ("NDCG@5",      "ndcg_cut_5"),
+    ("NDCG@10",     "ndcg_cut_10"),
+    ("NDCG@15",     "ndcg_cut_15"),
+    ("NDCG@20",     "ndcg_cut_20"),
+    ("NDCG@30",     "ndcg_cut_30"),
+    ("NDCG@100",    "ndcg_cut_100"),
+    ("NDCG@200",    "ndcg_cut_200"),
+    ("NDCG@500",    "ndcg_cut_500"),
+    ("NDCG@1000",   "ndcg_cut_1000"),
 ]
 
 
@@ -81,21 +99,29 @@ def parse_args() -> argparse.Namespace:
 
 
 def discover_cases(ref_dir: Path | None = None) -> Tuple[List[str], str]:
-    """Return (case_numbers, prefix). prefix is 'HW1-Train' or 'HW3-Train'."""
+    """Return (case_numbers, prefix). prefix is e.g. 'HW4-Train', detected from files."""
     if ref_dir is not None:
         ref_dir = Path(ref_dir)
+        prefix: str | None = None
         cases: List[str] = []
-        for f in sorted(ref_dir.glob("HW3-Train-*.teOut")):
-            m = re.match(r"HW3-Train-(\d+)\.teOut$", f.name)
+        for f in sorted(ref_dir.glob("HW*-Train-*.teOut")):
+            m = re.match(r"(HW\d+-Train)-(\d+)\.teOut$", f.name)
             if m:
-                cases.append(m.group(1))
-        return (cases, "HW3-Train")
+                if prefix is None:
+                    prefix = m.group(1)
+                if m.group(1) == prefix:
+                    cases.append(m.group(2))
+        return (cases, prefix or "HW-Train")
+    prefix = "HW1-Train"
     cases = []
-    for f in sorted(Path("TEST_DIR").glob("HW1-Train-*.param")):
-        m = re.match(r"HW1-Train-(\d+)\.param$", f.name)
+    for f in sorted(Path("TEST_DIR").glob("HW*-Train-*.param")):
+        m = re.match(r"(HW\d+-Train)-(\d+)\.param$", f.name)
         if m:
-            cases.append(m.group(1))
-    return (cases, "HW1-Train")
+            if not cases:
+                prefix = m.group(1)
+            if m.group(1) == prefix:
+                cases.append(m.group(2))
+    return (cases, prefix)
 
 
 def run_subprocess_and_stream(cmd: List[str]) -> int:
@@ -234,35 +260,54 @@ def parse_our_teout(path: Path) -> dict:
     return _parse_teout(path)
 
 
-def diff_hw3_metrics(ref_dir: Path, cases: List[str], out_dir: Path = Path("OUTPUT_DIR")) -> None:
-    """Diff OUTPUT_DIR/HW3-Train-{n}.teout vs ref_dir/HW3-Train-{n}.teOut (metric values)."""
-    print(f"=== Diff: your {out_dir}/HW3-Train-*.teout vs reference {ref_dir}/HW3-Train-*.teOut ===")
+def _print_diff(label: str, ref_vals: dict, our_vals: dict) -> None:
+    all_keys = sorted(set(ref_vals) | set(our_vals))
+    diffs = [(k, ref_vals.get(k), our_vals.get(k)) for k in all_keys if ref_vals.get(k) != our_vals.get(k)]
+    if not diffs:
+        print(f"  {label}: MATCH")
+    else:
+        print(f"  {label}: DIFFER")
+        for k, r, o in diffs[:20]:
+            print(f"    {k}: ref={r} yours={o}")
+        if len(diffs) > 20:
+            print(f"    ... ({len(diffs) - 20} more)")
+
+
+def diff_ref_metrics(ref_dir: Path, cases: List[str], prefix: str, out_dir: Path = Path("OUTPUT_DIR")) -> None:
+    """Diff OUTPUT_DIR/{prefix}-{n}.teout vs ref_dir/{prefix}-{n}.teOut (metric values)."""
+    print(f"=== Diff: your {out_dir}/{prefix}-*.teout vs reference {ref_dir}/{prefix}-*.teOut ===")
     ref_dir = Path(ref_dir)
     for num in cases:
-        ref_file = ref_dir / f"HW3-Train-{num}.teOut"
-        out_file = out_dir / f"HW3-Train-{num}.teout"
+        ref_file = ref_dir / f"{prefix}-{num}.teOut"
+        out_file = out_dir / f"{prefix}-{num}.teout"
         if not ref_file.exists():
-            print(f"  HW3-Train-{num}: skip (no reference {ref_file})")
+            print(f"  {prefix}-{num}: skip (no reference {ref_file})")
             continue
         if not out_file.exists():
-            print(f"  HW3-Train-{num}: MISSING your output {out_file}")
+            print(f"  {prefix}-{num}: MISSING your output {out_file}")
             continue
-        ref_vals = parse_ref_teout(ref_file)
-        our_vals = parse_our_teout(out_file)
-        all_keys = sorted(set(ref_vals) | set(our_vals))
-        diffs = []
-        for k in all_keys:
-            r, o = ref_vals.get(k), our_vals.get(k)
-            if r != o:
-                diffs.append((k, r, o))
-        if not diffs:
-            print(f"  HW3-Train-{num}: MATCH")
-        else:
-            print(f"  HW3-Train-{num}: DIFFER")
-            for k, r, o in diffs[:20]:
-                print(f"    {k}: ref={r} yours={o}")
-            if len(diffs) > 20:
-                print(f"    ... ({len(diffs) - 20} more)")
+        _print_diff(f"{prefix}-{num}", _parse_teout(ref_file), _parse_teout(out_file))
+
+
+# Keep old name as alias for backward compatibility
+def diff_hw3_metrics(ref_dir: Path, cases: List[str], out_dir: Path = Path("OUTPUT_DIR")) -> None:
+    diff_ref_metrics(ref_dir, cases, "HW3-Train", out_dir)
+
+
+def diff_direct_inputs(direct_inputs: List[Path], ref_dir: Path = Path("TEST_DIR")) -> None:
+    """Diff OUTPUT_DIR teout files (produced from direct teIn inputs) against ref_dir/*.teOut."""
+    print(f"=== Diff: your OUTPUT_DIR/*.teout vs reference {ref_dir}/*.teOut ===")
+    for te_in in direct_inputs:
+        stem = te_in.stem  # e.g. HW4-Train-0
+        out_file = Path("OUTPUT_DIR") / f"{stem}.teout"
+        ref_file = Path(ref_dir) / f"{stem}.teOut"
+        if not out_file.exists():
+            print(f"  {stem}: MISSING your output {out_file}")
+            continue
+        if not ref_file.exists():
+            print(f"  {stem}: skip (no reference {ref_file})")
+            continue
+        _print_diff(stem, _parse_teout(ref_file), _parse_teout(out_file))
 
 
 def diff_all_metrics(cases: List[str]) -> None:
@@ -333,20 +378,21 @@ def main() -> None:
                 direct_inputs = []
             elif args.cases:
                 cases, direct_inputs = resolve_inputs(args.cases)
+                prefix = "HW1-Train"
             else:
-                cases, _ = discover_cases(None)
-                direct_inputs = []
+                cases, prefix = discover_cases(None)
+                direct_inputs = sorted(Path("OUTPUT_DIR").glob("*.teIn"))
 
             if not cases and not direct_inputs:
                 print("[ERROR] No valid cases or input files found.")
                 sys.exit(2)
 
-            # HW3: compare your OUTPUT_DIR vs professor's ref_dir (diff only)
+            # --ref-dir mode: compare OUTPUT_DIR vs professor's ref_dir
             if ref_dir is not None:
                 if args.diff:
-                    diff_hw3_metrics(ref_dir, cases)
+                    diff_ref_metrics(ref_dir, cases, prefix)
                 else:
-                    print(f"Found {len(cases)} HW3-Train cases in {ref_dir}. Use --diff to compare your OUTPUT_DIR/*.teout to reference.")
+                    print(f"Found {len(cases)} {prefix} cases in {ref_dir}. Use --diff to compare your OUTPUT_DIR/*.teout to reference.")
                 print("Done.")
                 return
 
@@ -372,8 +418,8 @@ def main() -> None:
             if args.diff:
                 if cases:
                     diff_all_metrics(cases)
-                else:
-                    print("[WARN] --diff ignored because no HW1-Train numeric cases were provided.")
+                if direct_inputs:
+                    diff_direct_inputs(direct_inputs)
 
             print("Done.")
     finally:
