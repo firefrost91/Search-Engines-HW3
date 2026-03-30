@@ -86,7 +86,7 @@ class QrySopScore(QrySop):
         """
         getScore for the BM25 retrieval model.
         score = IDF * tf / (tf + k1 * (1 - b + b * doclen/avgdoclen))
-        IDF = max(0, log((N - df + 0.5) / (df + 0.5)))
+        IDF = log(1 + (N - df + 0.5) / (df + 0.5))   [Lucene BM25 IDF]
         where N = Idx.getNumDocs() (total corpus size).
         avgdoclen = sumOfFieldLengths / docCount(field).
         """
@@ -108,7 +108,7 @@ class QrySopScore(QrySop):
         k1 = r._k1
         b = r._b
         rsj = (N - df + 0.5) / (df + 0.5)
-        idf = max(0.0, math.log(rsj)) if rsj > 0.0 else 0.0
+        idf = math.log(1.0 + rsj)
         norm = 1.0 - b + b * (doclen / avgdoclen)
         return idf * tf / (tf + k1 * norm)
 
