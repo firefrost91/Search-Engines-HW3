@@ -85,9 +85,10 @@ class QrySopScore(QrySop):
     def __getScoreBM25(self, r):
         """
         getScore for the BM25 retrieval model.
-        score = IDF * (tf * (k1+1)) / (tf + k1 * (1 - b + b * doclen/avgdoclen))
+        score = IDF * tf / (tf + k1 * (1 - b + b * doclen/avgdoclen))
         IDF = max(0, log((N - df + 0.5) / (df + 0.5)))
-        where N is the number of documents that contain this field.
+        where N = Idx.getNumDocs() (total corpus size).
+        avgdoclen = sumOfFieldLengths / docCount(field).
         """
         q_iop = self._args[0]
         if not q_iop.docIteratorHasMatch(r):
@@ -96,12 +97,11 @@ class QrySopScore(QrySop):
         posting = q_iop.docIteratorGetMatchPosting()
         tf = float(posting.tf)
         field = q_iop._field
-        N = float(Idx.getDocCount(field))
+        N = float(Idx.getNumDocs())
         df = float(q_iop.getDf())
         doclen = float(Idx.getFieldLength(field, docid))
         sum_len = float(Idx.getSumOfFieldLengths(field))
         doc_count_field = float(Idx.getDocCount(field))
-        # Average doc length over docs that have this field (matches InspectIndex / common BM25)
         avgdoclen = sum_len / doc_count_field if doc_count_field > 0 else 1.0
         if avgdoclen <= 0:
             avgdoclen = 1.0
@@ -110,7 +110,8 @@ class QrySopScore(QrySop):
         rsj = (N - df + 0.5) / (df + 0.5)
         idf = max(0.0, math.log(rsj)) if rsj > 0.0 else 0.0
         norm = 1.0 - b + b * (doclen / avgdoclen)
-        return idf * (tf * (k1 + 1.0)) / (tf + k1 * norm)
+        return idf * tf / (tf + k1 * norm)
+
 
     def initialize(self, r):
         """

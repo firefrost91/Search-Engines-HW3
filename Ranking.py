@@ -60,8 +60,8 @@ class Ranking:
         Returns list of (score, externalId) for trec_eval.
         """
         results_qid = [(r.score, r.externalId, r.internalId) for r in self._ranking]
-        # Sort: score desc, then tie-break by internal docid asc (reference convention).
-        results_qid.sort(key=lambda r: (r[0], -r[2]), reverse=True)  # score desc, then internalId asc
+        # Sort: score desc, then tie-break by external docid alphabetically (design guide).
+        results_qid.sort(key=lambda r: (-r[0], r[1]))
         results_qid = [(r[0], r[1]) for r in results_qid]
         # Deduplicate by external docid (keep first = highest score per doc)
         seen = set()
