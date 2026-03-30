@@ -7,7 +7,7 @@ Run from the QryEval directory:
   ./run_tests.py --run              # run QryEval for each TEST_DIR/*.param, then trec_eval
   ./run_tests.py --diff             # after trec_eval, diff OUTPUT_DIR/*.teout vs TEST_DIR reference (aggregate 'all' only)
   ./run_tests.py --run --diff       # full: QryEval -> trec_eval -> diff
-  ./run_tests.py 0 5 16             # only cases 0, 5, 16 (HW1-Train-0, etc.)
+  ./run_tests.py 0 5 16             # only cases 0, 5, 16 (HW4-Train-0, etc.)
   ./run_tests.py OUTPUT_DIR/HW2-Exp-1.1a.teIn
 
   # Compare your output to professor's reference in hw3-tests:
@@ -112,7 +112,7 @@ def discover_cases(ref_dir: Path | None = None) -> Tuple[List[str], str]:
                 if m.group(1) == prefix:
                     cases.append(m.group(2))
         return (cases, prefix or "HW-Train")
-    prefix = "HW1-Train"
+    prefix = "HW4-Train"
     cases = []
     for f in sorted(Path("TEST_DIR").glob("HW*-Train-*.param")):
         m = re.match(r"(HW\d+-Train)-(\d+)\.param$", f.name)
@@ -140,7 +140,7 @@ def run_subprocess_and_stream(cmd: List[str]) -> int:
 def run_qryeval(cases: List[str]) -> None:
     print("=== Running QryEval for each test case ===")
     for num in cases:
-        param = Path(f"TEST_DIR/HW1-Train-{num}.param")
+        param = Path(f"TEST_DIR/HW4-Train-{num}.param")
         if not param.exists():
             continue
 
@@ -155,14 +155,14 @@ def run_trec_eval(cases: List[str], direct_inputs: List[Path]) -> None:
     Path("OUTPUT_DIR").mkdir(parents=True, exist_ok=True)
 
     for num in cases:
-        te_in = Path(f"OUTPUT_DIR/HW1-Train-{num}.teIn")
-        te_out = Path(f"OUTPUT_DIR/HW1-Train-{num}.teout")
+        te_in = Path(f"OUTPUT_DIR/HW4-Train-{num}.teIn")
+        te_out = Path(f"OUTPUT_DIR/HW4-Train-{num}.teout")
 
         if not te_in.exists():
-            print(f"  Skip HW1-Train-{num} (no {te_in}; run with --run to generate)")
+            print(f"  Skip HW4-Train-{num} (no {te_in}; run with --run to generate)")
             continue
 
-        print(f"  trec_eval HW1-Train-{num}")
+        print(f"  trec_eval HW4-Train-{num}")
         cmd = [str(TREC_EVAL), *METRICS, str(QRELVAL), str(te_in)]
         proc = subprocess.run(cmd, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
@@ -313,8 +313,8 @@ def diff_direct_inputs(direct_inputs: List[Path], ref_dir: Path = Path("TEST_DIR
 def diff_all_metrics(cases: List[str]) -> None:
     print("=== Diff: your OUTPUT_DIR/*.teout vs reference TEST_DIR/*.teOut (aggregate 'all' metrics) ===")
     for num in cases:
-        ref = Path(f"TEST_DIR/HW1-Train-{num}.teOut")
-        out = Path(f"OUTPUT_DIR/HW1-Train-{num}.teout")
+        ref = Path(f"TEST_DIR/HW4-Train-{num}.teOut")
+        out = Path(f"OUTPUT_DIR/HW4-Train-{num}.teout")
 
         if not ref.exists() or not out.exists():
             continue
@@ -331,10 +331,10 @@ def diff_all_metrics(cases: List[str]) -> None:
         # MATCH if every reference metric line appears in your output (same name + value).
         # Reference files may list only a subset of metrics; your trec_eval may output more.
         if not missing:
-            print(f"  HW1-Train-{num}: MATCH (aggregate metrics)")
+            print(f"  HW4-Train-{num}: MATCH (aggregate metrics)")
             continue
 
-        print(f"  HW1-Train-{num}: DIFFER")
+        print(f"  HW4-Train-{num}: DIFFER")
 
         if missing:
             print("    Missing (in reference but not in your output):")
@@ -378,7 +378,7 @@ def main() -> None:
                 direct_inputs = []
             elif args.cases:
                 cases, direct_inputs = resolve_inputs(args.cases)
-                prefix = "HW1-Train"
+                prefix = "HW4-Train"
             else:
                 cases, prefix = discover_cases(None)
                 direct_inputs = sorted(Path("OUTPUT_DIR").glob("*.teIn"))
@@ -396,7 +396,7 @@ def main() -> None:
                 print("Done.")
                 return
 
-            # Basic sanity checks (HW1 path)
+            # Basic sanity checks (HW4 path)
             if not QRELVAL.exists():
                 print(f"[ERROR] Missing qrels file: {QRELVAL}")
                 sys.exit(2)
@@ -409,7 +409,7 @@ def main() -> None:
                 if cases:
                     run_qryeval(cases)
                 else:
-                    print("[WARN] --run ignored because no HW1-Train numeric cases were provided.")
+                    print("[WARN] --run ignored because no HW4-Train numeric cases were provided.")
 
             # Step 2
             run_trec_eval(cases, direct_inputs)

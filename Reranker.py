@@ -72,16 +72,14 @@ class Reranker:
 
             if len(old_ranking) > len(new_ranking):
 
-                # If unchanged scores are >= to reranked scores,
-                # reduce them so that reranked scores are higher.
                 last_reranked = new_ranking[-1][0]
-                first_unchanged = old_ranking[self._rerank_depth][0]
-                score_adjust = max(0.0,
-                                   (first_unchanged + 0.1) - last_reranked)
 
                 # Merge the bottom of old_ranking into new_ranking.
+                # Assign scores that decrement by 0.0001 per doc below the
+                # last reranked score to break ties (matches reference behavior).
                 for i in range(self._rerank_depth, len(old_ranking)):
-                    new_score = old_ranking[i][0] - score_adjust
+                    offset = i - self._rerank_depth + 1
+                    new_score = last_reranked - 0.0001 * offset
                     docid = old_ranking[i][1]
                     new_ranking.append((new_score, docid))
                 
