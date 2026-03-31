@@ -6,6 +6,7 @@ Access and manage a feature-based learning-to-rank (Ltr) reranker.
 
 import math
 import subprocess
+from pathlib import Path
 
 import PyLu                         # Used to access RankLib
 import Util                         # Used to read and write files
@@ -99,7 +100,13 @@ class RerankWithLtr:
         self._ctf_cache = {}  # (field, stem)   -> collection term freq
 
         # ---- Build training data and train model ----
-        self._train()
+        # Skip training if the model file already exists (allows sharing a
+        # pre-trained model across experiments that differ only in rerankDepth).
+        model_path = parameters.get('ltr:modelFile', '')
+        if model_path and Path(model_path).exists():
+            print(f'[LTR] Reusing existing model: {model_path}', flush=True)
+        else:
+            self._train()
 
 
     # -------------- Cache helpers (get_xxx pattern) -------- #
@@ -313,7 +320,7 @@ class RerankWithLtr:
 
         for pos in range(tv.positionsLength()):
             stem_i = tv.positions[pos]
-            if stem_i <= 0:
+            if stem_i <= 0 or stem_i >= tv.stemsLength():
                 continue
             stem = str(tv.stemString(stem_i))
             if stem in query_set:
@@ -369,7 +376,7 @@ class RerankWithLtr:
 
         for pos in range(tv.positionsLength()):
             stem_i = tv.positions[pos]
-            if stem_i <= 0:
+            if stem_i <= 0 or stem_i >= tv.stemsLength():
                 continue
             stem = str(tv.stemString(stem_i))
             if stem in query_set:

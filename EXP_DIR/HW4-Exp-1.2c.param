@@ -1,0 +1,30 @@
+{
+    "indexPath": "INPUT_DIR/index-cw09",
+    "queryFilePath": "EXP_DIR/Exp-4.qry",
+    "task_1:ranker": {
+        "type": "inRankFile",
+        "inRankFile:Path": "EXP_DIR/output/queries.inRank"
+    },
+    "task_2:reranker": {
+        "type": "ltr",
+        "rerankDepth": "250",
+        "ltr:BM25:b": "0.75",
+        "ltr:BM25:k_1": "1.2",
+        "ltr:QL:mu": "2500",
+        "ltr:featureDisable": "1,2,3,4,7,10,13,16,17,18,19,20,21,22,23,24,25,26",
+        "ltr:toolkit": "RankLib",
+        "ltr:RankLib:model": "7",
+        "ltr:RankLib:metric2t": "MAP",
+        "ltr:trainingQueryFile": "EXP_DIR/Exp-4-train.qry",
+        "ltr:trainingQrelsFile": "EXP_DIR/Exp-4-train.qrels",
+        "ltr:trainingFeatureVectorsFile": "OUTPUT_DIR/HW4-Exp-1.2c.LtrTrain",
+        "ltr:modelFile": "OUTPUT_DIR/HW4-Exp-1.2b.Model",
+        "ltr:testingFeatureVectorsFile": "OUTPUT_DIR/HW4-Exp-1.2c.LtrTest",
+        "ltr:testingDocumentScores": "OUTPUT_DIR/HW4-Exp-1.2c.DocScore"
+    },
+    "task_3:output": {
+        "type": "trec_eval",
+        "outputPath": "OUTPUT_DIR/HW4-Exp-1.2c.teIn",
+        "outputLength": "1000"
+    }
+}

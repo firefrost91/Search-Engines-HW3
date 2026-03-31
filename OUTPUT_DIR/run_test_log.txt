@@ -1,236 +1,32 @@
 === Running trec_eval (your results -> OUTPUT_DIR/*.teout) ===
-  Skip HW1-Train-0 (no OUTPUT_DIR/HW1-Train-0.teIn; run with --run to generate)
-  Skip HW1-Train-1 (no OUTPUT_DIR/HW1-Train-1.teIn; run with --run to generate)
-  Skip HW1-Train-10 (no OUTPUT_DIR/HW1-Train-10.teIn; run with --run to generate)
-  trec_eval HW1-Train-11
-    wrote OUTPUT_DIR/HW1-Train-11.teout
-  num_q	1
-  num_ret	100
-  num_rel	24
-  num_rel_ret	22
-  MAP	0.3856
-  MRR	1.0000
-  P@5	0.8000
-  P@10	0.4000
-  P@15	0.2667
-  P@20	0.2000
-  P@30	0.2000
-  P@100	0.2200
-  P@200	0.1100
-  P@500	0.0440
-  P@1000	0.0220
-  Recall@100	0.9167
-  Recall@500	0.9167
-  Recall@1000	0.9167
-  NDCG	0.7658
-  NDCG@5	0.8718
-  NDCG@10	0.6466
-  NDCG@15	0.5329
-  NDCG@20	0.4604
-  NDCG@30	0.4627
-  NDCG@100	0.7658
-  NDCG@200	0.7658
-  NDCG@500	0.7658
-  NDCG@1000	0.7658
-  Skip HW1-Train-12 (no OUTPUT_DIR/HW1-Train-12.teIn; run with --run to generate)
-  Skip HW1-Train-13 (no OUTPUT_DIR/HW1-Train-13.teIn; run with --run to generate)
-  Skip HW1-Train-14 (no OUTPUT_DIR/HW1-Train-14.teIn; run with --run to generate)
-  Skip HW1-Train-15 (no OUTPUT_DIR/HW1-Train-15.teIn; run with --run to generate)
-  Skip HW1-Train-16 (no OUTPUT_DIR/HW1-Train-16.teIn; run with --run to generate)
-  Skip HW1-Train-17 (no OUTPUT_DIR/HW1-Train-17.teIn; run with --run to generate)
-  Skip HW1-Train-18 (no OUTPUT_DIR/HW1-Train-18.teIn; run with --run to generate)
-  Skip HW1-Train-19 (no OUTPUT_DIR/HW1-Train-19.teIn; run with --run to generate)
-  trec_eval HW1-Train-2
-    wrote OUTPUT_DIR/HW1-Train-2.teout
-  num_q	2
-  num_ret	2000
-  num_rel	223
-  num_rel_ret	223
-  MAP	0.5717
-  MRR	0.5294
-  P@5	0.5000
-  P@10	0.5000
-  P@15	0.5000
-  P@20	0.5750
-  P@30	0.6000
-  P@100	0.5300
-  P@200	0.5050
-  P@500	0.2220
-  P@1000	0.1115
-  Recall@100	0.4745
-  Recall@500	0.9955
-  Recall@1000	1.0000
-  NDCG	0.8092
-  NDCG@5	0.5000
-  NDCG@10	0.5000
-  NDCG@15	0.4888
-  NDCG@20	0.5240
-  NDCG@30	0.5186
-  NDCG@100	0.5193
-  NDCG@200	0.7584
-  NDCG@500	0.8077
-  NDCG@1000	0.8092
-  Skip HW1-Train-20 (no OUTPUT_DIR/HW1-Train-20.teIn; run with --run to generate)
-  Skip HW1-Train-21 (no OUTPUT_DIR/HW1-Train-21.teIn; run with --run to generate)
-  Skip HW1-Train-22 (no OUTPUT_DIR/HW1-Train-22.teIn; run with --run to generate)
-  Skip HW1-Train-23 (no OUTPUT_DIR/HW1-Train-23.teIn; run with --run to generate)
-  Skip HW1-Train-24 (no OUTPUT_DIR/HW1-Train-24.teIn; run with --run to generate)
-  Skip HW1-Train-25 (no OUTPUT_DIR/HW1-Train-25.teIn; run with --run to generate)
-  Skip HW1-Train-3 (no OUTPUT_DIR/HW1-Train-3.teIn; run with --run to generate)
-  Skip HW1-Train-4 (no OUTPUT_DIR/HW1-Train-4.teIn; run with --run to generate)
-  Skip HW1-Train-5 (no OUTPUT_DIR/HW1-Train-5.teIn; run with --run to generate)
-  Skip HW1-Train-6 (no OUTPUT_DIR/HW1-Train-6.teIn; run with --run to generate)
-  Skip HW1-Train-7 (no OUTPUT_DIR/HW1-Train-7.teIn; run with --run to generate)
-  Skip HW1-Train-8 (no OUTPUT_DIR/HW1-Train-8.teIn; run with --run to generate)
-  Skip HW1-Train-9 (no OUTPUT_DIR/HW1-Train-9.teIn; run with --run to generate)
-  trec_eval OUTPUT_DIR/HW1-Train-11.teIn
-    wrote OUTPUT_DIR/HW1-Train-11.teout
-  num_q	1
-  num_ret	100
-  num_rel	24
-  num_rel_ret	22
-  MAP	0.3856
-  MRR	1.0000
-  P@5	0.8000
-  P@10	0.4000
-  P@15	0.2667
-  P@20	0.2000
-  P@30	0.2000
-  P@100	0.2200
-  P@200	0.1100
-  P@500	0.0440
-  P@1000	0.0220
-  Recall@100	0.9167
-  Recall@500	0.9167
-  Recall@1000	0.9167
-  NDCG	0.7658
-  NDCG@5	0.8718
-  NDCG@10	0.6466
-  NDCG@15	0.5329
-  NDCG@20	0.4604
-  NDCG@30	0.4627
-  NDCG@100	0.7658
-  NDCG@200	0.7658
-  NDCG@500	0.7658
-  NDCG@1000	0.7658
-  trec_eval OUTPUT_DIR/HW1-Train-2.teIn
-    wrote OUTPUT_DIR/HW1-Train-2.teout
-  num_q	2
-  num_ret	2000
-  num_rel	223
-  num_rel_ret	223
-  MAP	0.5717
-  MRR	0.5294
-  P@5	0.5000
-  P@10	0.5000
-  P@15	0.5000
-  P@20	0.5750
-  P@30	0.6000
-  P@100	0.5300
-  P@200	0.5050
-  P@500	0.2220
-  P@1000	0.1115
-  Recall@100	0.4745
-  Recall@500	0.9955
-  Recall@1000	1.0000
-  NDCG	0.8092
-  NDCG@5	0.5000
-  NDCG@10	0.5000
-  NDCG@15	0.4888
-  NDCG@20	0.5240
-  NDCG@30	0.5186
-  NDCG@100	0.5193
-  NDCG@200	0.7584
-  NDCG@500	0.8077
-  NDCG@1000	0.8092
-  trec_eval OUTPUT_DIR/HW4-Train-0-bm25only.teIn
-    wrote OUTPUT_DIR/HW4-Train-0-bm25only.teout
-  num_q	1
-  num_ret	100
-  num_rel	73
-  num_rel_ret	27
-  MAP	0.2269
-  MRR	1.0000
-  P@5	0.8000
-  P@10	0.8000
-  P@15	0.8000
-  P@20	0.7000
-  P@30	0.5000
-  P@100	0.2700
-  P@200	0.1350
-  P@500	0.0540
-  P@1000	0.0270
-  Recall@100	0.3699
-  Recall@500	0.3699
-  Recall@1000	0.3699
-  NDCG	0.4742
-  NDCG@5	0.7012
-  NDCG@10	0.7058
-  NDCG@15	0.7075
-  NDCG@20	0.6559
-  NDCG@30	0.5279
-  NDCG@100	0.4742
-  NDCG@200	0.4742
-  NDCG@500	0.4742
-  NDCG@1000	0.4742
-  trec_eval OUTPUT_DIR/HW4-Train-0.teIn
-    wrote OUTPUT_DIR/HW4-Train-0.teout
-  num_q	1
-  num_ret	1000
-  num_rel	73
-  num_rel_ret	69
-  MAP	0.2446
-  MRR	1.0000
-  P@5	0.6000
-  P@10	0.6000
-  P@15	0.4000
-  P@20	0.3500
-  P@30	0.3333
-  P@100	0.2800
-  P@200	0.2050
-  P@500	0.1080
-  P@1000	0.0690
-  Recall@100	0.3836
-  Recall@500	0.7397
-  Recall@1000	0.9452
-  NDCG	0.6585
-  NDCG@5	0.4469
-  NDCG@10	0.4622
-  NDCG@15	0.3583
-  NDCG@20	0.3317
-  NDCG@30	0.3236
-  NDCG@100	0.3953
-  NDCG@200	0.5015
-  NDCG@500	0.5908
-  NDCG@1000	0.6585
-  trec_eval OUTPUT_DIR/HW4-Train-6.teIn
-    wrote OUTPUT_DIR/HW4-Train-6.teout
-  num_q	2
-  num_ret	2000
-  num_rel	47
-  num_rel_ret	40
-  MAP	0.5509
-  MRR	0.7500
-  P@5	0.4000
-  P@10	0.2000
-  P@15	0.1333
-  P@20	0.1000
-  P@30	0.0667
-  P@100	0.0450
-  P@200	0.0525
-  P@500	0.0370
-  P@1000	0.0200
-  Recall@100	0.5870
-  Recall@500	0.8913
-  Recall@1000	0.9239
-  NDCG	0.7248
-  NDCG@5	0.6494
-  NDCG@10	0.6137
-  NDCG@15	0.5950
-  NDCG@20	0.5827
-  NDCG@30	0.5672
-  NDCG@100	0.5822
-  NDCG@200	0.6438
-  NDCG@500	0.7137
-  NDCG@1000	0.7248
+  trec_eval OUTPUT_DIR/HW4-Exp-1.1c.teIn
+    wrote OUTPUT_DIR/HW4-Exp-1.1c.teout
+  num_q	12
+  num_ret	12000
+  num_rel	442
+  num_rel_ret	435
+  MAP	0.3487
+  MRR	0.5841
+  P@5	0.4667
+  P@10	0.4250
+  P@15	0.3889
+  P@20	0.3750
+  P@30	0.3167
+  P@100	0.2375
+  P@200	0.1554
+  P@500	0.0698
+  P@1000	0.0363
+  Recall@100	0.7855
+  Recall@500	0.9734
+  Recall@1000	0.9914
+  NDCG	0.6147
+  NDCG@5	0.3500
+  NDCG@10	0.3609
+  NDCG@15	0.3688
+  NDCG@20	0.3801
+  NDCG@30	0.3922
+  NDCG@100	0.5257
+  NDCG@200	0.5812
+  NDCG@500	0.6062
+  NDCG@1000	0.6147
 Done.
