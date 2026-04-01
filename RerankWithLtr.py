@@ -6,7 +6,6 @@ Access and manage a feature-based learning-to-rank (Ltr) reranker.
 
 import math
 import subprocess
-from pathlib import Path
 
 import PyLu                         # Used to access RankLib
 import Util                         # Used to read and write files
@@ -100,13 +99,7 @@ class RerankWithLtr:
         self._ctf_cache = {}  # (field, stem)   -> collection term freq
 
         # ---- Build training data and train model ----
-        # Skip training if the model file already exists (allows sharing a
-        # pre-trained model across experiments that differ only in rerankDepth).
-        model_path = parameters.get('ltr:modelFile', '')
-        if model_path and Path(model_path).exists():
-            print(f'[LTR] Reusing existing model: {model_path}', flush=True)
-        else:
-            self._train()
+        self._train()
 
 
     # -------------- Cache helpers (get_xxx pattern) -------- #
@@ -315,16 +308,25 @@ class RerankWithLtr:
         if num_query_terms < 2:
             return 0.0
 
-        query_set = set(query_terms)
-        occurrences = []
+        # Pre-build a map from stem index → stem string for only the query
+        # terms that actually appear in this term vector.  This avoids calling
+        # the expensive tv.stemString() Java bridge for every document position
+        # in the inner loop (web docs can have 50k–100k+ positions).
+        query_idx_to_stem = {}
+        for stem in query_terms:
+            idx = tv.indexOfStem(stem)
+            if idx >= 0:
+                query_idx_to_stem[idx] = stem
 
-        for pos in range(tv.positionsLength()):
-            stem_i = tv.positions[pos]
-            if stem_i <= 0 or stem_i >= tv.stemsLength():
-                continue
-            stem = str(tv.stemString(stem_i))
-            if stem in query_set:
-                occurrences.append((pos, stem))
+        occurrences = []
+        if query_idx_to_stem:
+            # Bulk-copy the Java int array to a Python list in one call so the
+            # inner loop uses fast Python indexing instead of repeated Java
+            # bridge calls (one per position).
+            py_positions = list(tv.positions)
+            for pos, stem_i in enumerate(py_positions):
+                if stem_i in query_idx_to_stem:
+                    occurrences.append((pos, query_idx_to_stem[stem_i]))
 
         if len(occurrences) < 2:
             return 0.0
@@ -370,16 +372,22 @@ class RerankWithLtr:
         if tv is None:
             return None
 
-        query_set = set(query_stems)
-        if not query_set:
+        if not query_stems:
             return 0.0
 
-        for pos in range(tv.positionsLength()):
-            stem_i = tv.positions[pos]
-            if stem_i <= 0 or stem_i >= tv.stemsLength():
-                continue
-            stem = str(tv.stemString(stem_i))
-            if stem in query_set:
+        # Pre-build stem-index set for query terms present in this TV.
+        query_indices = set()
+        for stem in query_stems:
+            idx = tv.indexOfStem(stem)
+            if idx >= 0:
+                query_indices.add(idx)
+
+        if not query_indices:
+            return 0.0
+
+        py_positions = list(tv.positions)
+        for pos, stem_i in enumerate(py_positions):
+            if stem_i in query_indices:
                 return 1.0 / float(1 + pos)
 
         return 0.0
@@ -658,11 +666,13 @@ class RerankWithLtr:
         model_path     = self._params['ltr:modelFile']
 
         # ---- Load training queries ----
+        print('[LTR] Loading training queries ...', flush=True)
         train_queries = Util.read_queries(train_qry_path)
 
         # ---- Load qrels: {qid: {ext_id: rel}} ----
         # Column layout: qid  dummy  ext_id  rel
         # Relevance label -2 (spam) is treated as 0 per design guide.
+        print('[LTR] Loading qrels ...', flush=True)
         qrels = {}
         for parts in Util.read_qrels(train_qrels_path):
             if len(parts) < 4:
@@ -675,9 +685,10 @@ class RerankWithLtr:
 
         # ---- Generate feature vectors for every training <q, d> ----
         records = []   # final list of (rel, qid, fv, ext_id)
+        qids = sorted(qrels.keys(), key=lambda x: int(x) if x.isdigit() else x)
+        print(f'[LTR] Generating training feature vectors for {len(qids)} queries ...', flush=True)
 
-        for qid in sorted(qrels.keys(),
-                          key=lambda x: int(x) if x.isdigit() else x):
+        for qi, qid in enumerate(qids):
             if qid not in train_queries:
                 continue
 
@@ -685,6 +696,7 @@ class RerankWithLtr:
             if not query_stems:
                 continue
 
+            print(f'[LTR]   query {qi+1}/{len(qids)} qid={qid} ({len(qrels[qid])} docs) ...', flush=True)
             self._reset_query_caches()
             fv_list  = []
             doc_list = []   # (rel, ext_id)
@@ -711,10 +723,13 @@ class RerankWithLtr:
                 records.append((rel, qid, fv_list[i], ext_id))
 
         # ---- Write training feature vectors ----
+        print(f'[LTR] Writing {len(records)} training feature vectors to {train_fv_path} ...', flush=True)
         self._write_feature_vectors(train_fv_path, records)
 
         # ---- Train model ----
+        print(f'[LTR] Training model (toolkit={self._toolkit}, model={self._params.get("ltr:RankLib:model","?")}) ...', flush=True)
         self._call_toolkit_train(train_fv_path, model_path)
+        print('[LTR] Training complete.', flush=True)
 
 
     # -------------- Reranking ----------------------------- #

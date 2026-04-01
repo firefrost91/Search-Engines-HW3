@@ -4,6 +4,8 @@ BERT-based reranker for a passage-level reranking pipeline.
 
 # Copyright (c) 2026, Carnegie Mellon University.  All Rights Reserved.
 
+import platform
+
 import torch
 from transformers import AutoTokenizer, AutoModelForSequenceClassification
 
@@ -58,12 +60,36 @@ class RerankWithBERT:
                 f'Error: Unknown bertrr:scoreAggregation '
                 f'"{parameters["bertrr:scoreAggregation"]}". '
                 f'Expected firstp, avgp, or maxp.')
-
         model_path = str(parameters['bertrr:modelPath'])
         self._tokenizer = AutoTokenizer.from_pretrained(model_path)
+
+        use_mps = (
+            'macOS' in platform.platform()
+            and 'arm64' in platform.platform()
+            and torch.backends.mps.is_available()
+        )
+        self._device = torch.device('mps' if use_mps else 'cpu')  # ✅ assign first
+
         self._bert_model = AutoModelForSequenceClassification.from_pretrained(
-            model_path, num_labels=1)
+            model_path, num_labels=1
+        ).to(self._device)  # ✅ correct device placement
         self._bert_model.eval()
+
+        # Sanity check
+        print(f"[RerankWithBERT] Device: {self._device}")
+        dummy_input = self._tokenizer.encode_plus(
+            ["test query", "test passage"],
+            add_special_tokens=True,
+            max_length=64,
+            truncation='only_second',
+            return_tensors='pt',
+        )
+        dummy_input = {k: v.to(self._device) for k, v in dummy_input.items()}
+        with torch.no_grad():
+            _ = self._bert_model(**dummy_input)
+        print(f"[RerankWithBERT] Dummy forward pass succeeded on {self._device} ✓")
+
+
 
 
     def rerank(self, batch):
@@ -130,11 +156,6 @@ class RerankWithBERT:
 
 
     def _score_document(self, q_str, passages):
-        """
-        Score a document from its passage strings using BERT.
-
-        Returns the aggregated float score, or 0.0 if there are no passages.
-        """
         if not passages:
             return 0.0
 
@@ -147,13 +168,15 @@ class RerankWithBERT:
                 truncation='only_second',
                 return_tensors='pt',
             )
+            tensors = {k: v.to(self._device) for k, v in tensors.items()}  # ✅ move to GPU
             with torch.no_grad():
                 passage_scores.append(
-                    self._bert_model(**tensors).logits.data.item())
+                    self._bert_model(**tensors).logits.detach().cpu().item()
+                )
 
         if self._score_aggregation == 'firstp':
             return passage_scores[0]
         elif self._score_aggregation == 'maxp':
             return max(passage_scores)
-        else:  # avgp
+        else:
             return sum(passage_scores) / len(passage_scores)

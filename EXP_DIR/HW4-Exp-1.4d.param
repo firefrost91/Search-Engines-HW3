@@ -17,7 +17,7 @@
         "bertrr:psgCnt": "3",
         "bertrr:maxTitleLength": "16"
     },
-    "task_5:output": {
+    "task_3:output": {
         "type": "trec_eval",
         "outputPath": "OUTPUT_DIR/HW4-Exp-1.4d.teIn",
         "outputLength": "1000"

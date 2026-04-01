@@ -1,0 +1,37 @@
+{
+    "indexPath": "INPUT_DIR/index-cw09",
+    "queryFilePath": "EXP_DIR/Exp-4.qry",
+    "task_1:ranker": {
+        "type": "BM25",
+        "BM25:k_1": "1.5",
+        "BM25:b": "0.50",
+        "outputLength": "1000"
+    },
+    "task_2:reranker": {
+        "type": "bertrr",
+        "rerankDepth": "250",
+        "bertrr:maxSeqLength": "512",
+        "bertrr:modelPath": "INPUT_DIR/ms-marco-MiniLM-L-6-v2",
+        "bertrr:scoreAggregation": "maxp",
+        "bertrr:psgLen": "150",
+        "bertrr:psgStride": "125",
+        "bertrr:psgCnt": "3",
+        "bertrr:maxTitleLength": "16"
+    },
+    "task_3:reranker": {
+        "type": "bertrr",
+        "rerankDepth": "100",
+        "bertrr:maxSeqLength": "512",
+        "bertrr:modelPath": "INPUT_DIR/ms-marco-MiniLM-L-12-v2",
+        "bertrr:scoreAggregation": "maxp",
+        "bertrr:psgLen": "150",
+        "bertrr:psgStride": "125",
+        "bertrr:psgCnt": "3",
+        "bertrr:maxTitleLength": "16"
+    },
+    "task_4:output": {
+        "type": "trec_eval",
+        "outputPath": "OUTPUT_DIR/HW4-Exp-3.1a.teIn",
+        "outputLength": "1000"
+    }
+}
